@@ -1,0 +1,36 @@
+{
+	"Dependencies": [],
+	"Properties": [
+		{
+			"Id": "00000000-0000-0000-0000-000000000000",
+			"Name": "Execute",
+			"PinName": "",
+			"PinDescription": "",
+			"InitialData": {
+				"Type": "Void"
+			},
+			"Data": {
+				"Type": "Void"
+			}
+		}
+	],
+	"Nodes": [
+		{
+			"Id": "1342B337-D83C-4502-A12F-3CBB20C73F65",
+			"Name": "DebugMessage"
+		},
+		{
+			"Id": "CE3F5B9E-EC33-4170-B2DA-29F5EDE45E37",
+			"Name": "SettingsVariable",
+			"SettingName": "Dool/ExtraDool"
+		}
+	],
+	"Links": [
+		{
+			"NodeA": "CE3F5B9E-EC33-4170-B2DA-29F5EDE45E37",
+			"PinA": 0,
+			"NodeB": "1342B337-D83C-4502-A12F-3CBB20C73F65",
+			"PinB": 0
+		}
+	]
+}

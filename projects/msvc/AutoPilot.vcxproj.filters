@@ -1,0 +1,227 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ImGui">
+      <UniqueIdentifier>{c27855d0-e686-421c-a0bf-219b012c9657}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{f3f9e519-62df-41f8-aba1-89eb3ec2a151}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{a9c16d1e-cd06-4b4a-83f4-b30626752d4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\sjson">
+      <UniqueIdentifier>{f9d4bede-5278-48b9-8f9a-58e484e13884}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\dirent">
+      <UniqueIdentifier>{143e7ede-08df-48a2-87a2-4a83be15bcc0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{e01c1563-da86-4a9d-855a-09c8c96594fe}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\code\ImGui\imconfig.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\ImGui\imgui_internal.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\ImGui\imgui.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Atomic.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Base.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\BlitSort.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Debug.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Hash.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\IncludeWin.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Jobs.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\JsonParser.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Log.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\MathScalar.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\MathTypes.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\MathVector.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Settings.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\System.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\TracyHelper.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Main.h" />
+    <ClInclude Include="..\..\code\ImGui\ImGuiAll.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\IniParser.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\GuiTextView.h" />
+    <ClInclude Include="..\..\code\Core\Allocators.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\MathAll.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\StringUtil.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\NodeGraph.h" />
+    <ClInclude Include="..\..\code\strpool.h" />
+    <ClInclude Include="..\..\code\GuiNodeGraph.h" />
+    <ClInclude Include="..\..\code\External\sjson\sjson.h">
+      <Filter>External\sjson</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\BuiltinNodes.h" />
+    <ClInclude Include="..\..\code\GuiUtil.h" />
+    <ClInclude Include="..\..\code\BuiltinProps.h" />
+    <ClInclude Include="..\..\code\External\dirent\dirent.h">
+      <Filter>External\dirent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Workspace.h" />
+    <ClInclude Include="..\..\code\GuiWorkspace.h" />
+    <ClInclude Include="resource.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\GuiTasksView.h" />
+    <ClInclude Include="..\..\code\TaskMan.h" />
+    <ClInclude Include="..\..\code\ImGui\IconsFontAwesome4.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\ImGui\imnodes.h">
+      <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Arrays.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Blobs.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Core\Pools.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\Common.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\code\Main.cpp" />
+    <ClCompile Include="..\..\code\Core\Base.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Debug.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\DebugWin.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Hash.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Jobs.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\JsonParser.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Log.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Settings.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\System.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\SystemAndroid.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\SystemPosix.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\SystemWin.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\TracyHelper.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\ImGui\ImGuiAll.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\MainWin.cpp" />
+    <ClCompile Include="..\..\code\Core\IniParser.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\GuiTextView.cpp" />
+    <ClCompile Include="..\..\code\Core\DebugClang.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\Allocators.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\MathAll.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\StringUtil.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Core\StringUtilWin.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\NodeGraph.cpp" />
+    <ClCompile Include="..\..\code\GuiNodeGraph.cpp" />
+    <ClCompile Include="..\..\code\ImGui\imgui_demo.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\code\BuiltinNodes.cpp" />
+    <ClCompile Include="..\..\code\GuiUtil.cpp" />
+    <ClCompile Include="..\..\code\BuiltinProps.cpp" />
+    <ClCompile Include="..\..\code\Workspace.cpp" />
+    <ClCompile Include="..\..\code\GuiWorkspace.cpp" />
+    <ClCompile Include="..\..\code\GuiTasksView.cpp" />
+    <ClCompile Include="..\..\code\TaskMan.cpp" />
+    <ClCompile Include="..\..\code\Core\Pools.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\code\Core\SystemMac.mm">
+      <Filter>Core</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="AutoPilot.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="ogre.ico">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="AutoPilot.ico">
+      <Filter>Resources</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

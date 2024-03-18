@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{2548596f-6b8d-47d3-a6d7-798ef43029fd}</ProjectGuid>
+    <RootNamespace>
+    </RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="Common.props" />
+    <Import Project="CommonDebug.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="Common.props" />
+    <Import Project="CommonRelease.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IntDir>$(SolutionDir)..\..\build\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IntDir>$(SolutionDir)..\..\build\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;CONFIG_APP_NAME="AutoPilot";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\code\ImGui\freetype</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\code\ImGui\freetype;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/IGNORE:4099 /IGNORE:4098 %(AdditionalOptions)</AdditionalOptions>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;CONFIG_APP_NAME="AutoPilot";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\code\ImGui\freetype</AdditionalIncludeDirectories>
+      <Optimization>MinSpace</Optimization>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\code\ImGui\freetype;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freetype.lib;vcruntime.lib;msvcrt.lib;ucrt.lib;msvcprt.lib;d3dcompiler.lib;Imm32.lib;Dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/IGNORE:4099 /IGNORE:4098 %(AdditionalOptions)</AdditionalOptions>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\code\BuiltinNodes.h" />
+    <ClInclude Include="..\..\code\BuiltinProps.h" />
+    <ClInclude Include="..\..\code\Common.h" />
+    <ClInclude Include="..\..\code\Core\Allocators.h" />
+    <ClInclude Include="..\..\code\Core\Arrays.h" />
+    <ClInclude Include="..\..\code\Core\Atomic.h" />
+    <ClInclude Include="..\..\code\Core\Base.h" />
+    <ClInclude Include="..\..\code\Core\BlitSort.h" />
+    <ClInclude Include="..\..\code\Core\Blobs.h" />
+    <ClInclude Include="..\..\code\Core\Debug.h" />
+    <ClInclude Include="..\..\code\Core\Hash.h" />
+    <ClInclude Include="..\..\code\Core\IncludeWin.h" />
+    <ClInclude Include="..\..\code\Core\IniParser.h" />
+    <ClInclude Include="..\..\code\Core\Jobs.h" />
+    <ClInclude Include="..\..\code\Core\JsonParser.h" />
+    <ClInclude Include="..\..\code\Core\Log.h" />
+    <ClInclude Include="..\..\code\Core\MathAll.h" />
+    <ClInclude Include="..\..\code\Core\MathScalar.h" />
+    <ClInclude Include="..\..\code\Core\MathTypes.h" />
+    <ClInclude Include="..\..\code\Core\MathVector.h" />
+    <ClInclude Include="..\..\code\Core\Pools.h" />
+    <ClInclude Include="..\..\code\Core\Settings.h" />
+    <ClInclude Include="..\..\code\Core\StringUtil.h" />
+    <ClInclude Include="..\..\code\Core\System.h" />
+    <ClInclude Include="..\..\code\Core\TracyHelper.h" />
+    <ClInclude Include="..\..\code\External\dirent\dirent.h" />
+    <ClInclude Include="..\..\code\External\sjson\sjson.h" />
+    <ClInclude Include="..\..\code\GuiNodeGraph.h" />
+    <ClInclude Include="..\..\code\GuiTasksView.h" />
+    <ClInclude Include="..\..\code\GuiTextView.h" />
+    <ClInclude Include="..\..\code\GuiUtil.h" />
+    <ClInclude Include="..\..\code\GuiWorkspace.h" />
+    <ClInclude Include="..\..\code\ImGui\IconsFontAwesome4.h" />
+    <ClInclude Include="..\..\code\ImGui\imconfig.h" />
+    <ClInclude Include="..\..\code\ImGui\imgui.h" />
+    <ClInclude Include="..\..\code\ImGui\ImGuiAll.h" />
+    <ClInclude Include="..\..\code\ImGui\imgui_internal.h" />
+    <ClInclude Include="..\..\code\ImGui\imnodes.h" />
+    <ClInclude Include="..\..\code\Main.h" />
+    <ClInclude Include="..\..\code\NodeGraph.h" />
+    <ClInclude Include="..\..\code\strpool.h" />
+    <ClInclude Include="..\..\code\TaskMan.h" />
+    <ClInclude Include="..\..\code\Workspace.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\code\BuiltinNodes.cpp" />
+    <ClCompile Include="..\..\code\BuiltinProps.cpp" />
+    <ClCompile Include="..\..\code\Core\Allocators.cpp" />
+    <ClCompile Include="..\..\code\Core\Base.cpp" />
+    <ClCompile Include="..\..\code\Core\Debug.cpp" />
+    <ClCompile Include="..\..\code\Core\DebugClang.cpp" />
+    <ClCompile Include="..\..\code\Core\DebugWin.cpp" />
+    <ClCompile Include="..\..\code\Core\Hash.cpp" />
+    <ClCompile Include="..\..\code\Core\IniParser.cpp" />
+    <ClCompile Include="..\..\code\Core\Jobs.cpp" />
+    <ClCompile Include="..\..\code\Core\JsonParser.cpp" />
+    <ClCompile Include="..\..\code\Core\Log.cpp" />
+    <ClCompile Include="..\..\code\Core\MathAll.cpp" />
+    <ClCompile Include="..\..\code\Core\Pools.cpp" />
+    <ClCompile Include="..\..\code\Core\Settings.cpp" />
+    <ClCompile Include="..\..\code\Core\StringUtil.cpp" />
+    <ClCompile Include="..\..\code\Core\StringUtilWin.cpp" />
+    <ClCompile Include="..\..\code\Core\System.cpp" />
+    <ClCompile Include="..\..\code\Core\SystemAndroid.cpp" />
+    <ClCompile Include="..\..\code\Core\SystemPosix.cpp" />
+    <ClCompile Include="..\..\code\Core\SystemWin.cpp" />
+    <ClCompile Include="..\..\code\Core\TracyHelper.cpp" />
+    <ClCompile Include="..\..\code\GuiNodeGraph.cpp" />
+    <ClCompile Include="..\..\code\GuiTasksView.cpp" />
+    <ClCompile Include="..\..\code\GuiTextView.cpp" />
+    <ClCompile Include="..\..\code\GuiUtil.cpp" />
+    <ClCompile Include="..\..\code\GuiWorkspace.cpp" />
+    <ClCompile Include="..\..\code\ImGui\ImGuiAll.cpp">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">IMGUI_INCLUDE_DEMO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">IMGUI_INCLUDE_DEMO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\code\ImGui\imgui_demo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\code\Main.cpp" />
+    <ClCompile Include="..\..\code\MainWin.cpp" />
+    <ClCompile Include="..\..\code\NodeGraph.cpp" />
+    <ClCompile Include="..\..\code\TaskMan.cpp" />
+    <ClCompile Include="..\..\code\Workspace.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\code\Core\SystemMac.mm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="AutoPilot.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="AutoPilot.ico" />
+    <Image Include="ogre.ico" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

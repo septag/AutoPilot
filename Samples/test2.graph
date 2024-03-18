@@ -1,0 +1,148 @@
+{
+	"Dependencies": [],
+	"Properties": [
+		{
+			"Id": "00000000-0000-0000-0000-000000000000",
+			"Name": "Execute",
+			"PinName": "",
+			"PinDescription": "",
+			"InitialData": {
+				"Type": "Void"
+			},
+			"Data": {
+				"Type": "Void"
+			}
+		},
+		{
+			"Id": "8BE05CDB-347B-4003-A77F-8B7725F45A90",
+			"Name": "MultiSelect",
+			"PinName": "Item",
+			"PinDescription": "",
+			"InitialData": {
+				"Type": "String",
+				"Value": ""
+			},
+			"Data": {
+				"Type": "String",
+				"Value": "Three;Two;"
+			},
+			"Items": [
+				{
+					"Name": "One"
+				},
+				{
+					"Name": "Two"
+				},
+				{
+					"Name": "Three"
+				}
+			]
+		},
+		{
+			"Id": "BE04F50D-4D8A-451C-B4DF-28A6ABB5AB95",
+			"Name": "String",
+			"PinName": "Dirs",
+			"PinDescription": "",
+			"InitialData": {
+				"Type": "String",
+				"Value": ""
+			},
+			"Data": {
+				"Type": "String",
+				"Value": "C:\\Git\\septag\\Grady\\code"
+			}
+		},
+		{
+			"Id": "73ACA58F-6C5C-4C32-9205-C75031B2AD75",
+			"Name": "String",
+			"PinName": "ShellExecuteCmd",
+			"PinDescription": "",
+			"InitialData": {
+				"Type": "String",
+				"Value": ""
+			},
+			"Data": {
+				"Type": "String",
+				"Value": ""
+			}
+		}
+	],
+	"Nodes": [
+		{
+			"Id": "0BABCB82-C46B-4895-B23D-6D70B4DF1EA3",
+			"Name": "SplitString",
+			"SplitChar": ";",
+			"SplitNewLines": true,
+			"IgnoreWhitespace": false
+		},
+		{
+			"Id": "22D09767-8331-4887-B199-0B68D61FB322",
+			"Name": "DebugMessage"
+		},
+		{
+			"Id": "FADC7C8B-8780-45A8-AC1A-FE4417FDCE65",
+			"Name": "CreateProcess",
+			"ExtraInPins": [
+				"Arg1"
+			],
+			"Title": "CreateProcess",
+			"ExecuteCmd": "dir ${Arg1}",
+			"SuccessRetCode": 0,
+			"CmdTextInputWidth": 550,
+			"CheckRetCode": true,
+			"FatalErrorOnFail": true,
+			"RunInCmd": true
+		},
+		{
+			"Id": "5102988D-C7B7-4C1E-B044-1A635BC7519A",
+			"Name": "ListDirectory",
+			"Extensions": ".cpp .h",
+			"ExcludeExtensions": "",
+			"Recursive": true,
+			"IgnoreDirectories": true,
+			"OnlyDirectories": false
+		},
+		{
+			"Id": "2637ED81-9C73-4C18-949A-A1D9D2A3607F",
+			"Name": "SetEnvironmentVariable"
+		},
+		{
+			"Id": "77027573-CF7D-4C9F-B2E7-02169AC62337",
+			"Name": "StringConstant",
+			"VarName": "Test",
+			"Value": "TestItems"
+		},
+		{
+			"Id": "B2E27FA6-8D0A-4ED8-9213-91CA1677FCC2",
+			"Name": "ShellExecute",
+			"Title": "ShellExecute",
+			"ExecuteArgs": "",
+			"Operation": "explore",
+			"FatalErrorOnFail": true,
+			"RunAsAdmin": false
+		}
+	],
+	"Links": [
+		{
+			"PropertyId": "8BE05CDB-347B-4003-A77F-8B7725F45A90",
+			"NodeB": "2637ED81-9C73-4C18-949A-A1D9D2A3607F",
+			"PinB": 1
+		},
+		{
+			"NodeA": "77027573-CF7D-4C9F-B2E7-02169AC62337",
+			"PinA": 0,
+			"NodeB": "2637ED81-9C73-4C18-949A-A1D9D2A3607F",
+			"PinB": 0
+		},
+		{
+			"PropertyId": "73ACA58F-6C5C-4C32-9205-C75031B2AD75",
+			"NodeB": "B2E27FA6-8D0A-4ED8-9213-91CA1677FCC2",
+			"PinB": 1
+		},
+		{
+			"PropertyId": "00000000-0000-0000-0000-000000000000",
+			"NodeB": "B2E27FA6-8D0A-4ED8-9213-91CA1677FCC2",
+			"PinB": 0
+		}
+	]
+}

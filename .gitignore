@@ -30,3 +30,16 @@
 *.exe
 *.out
 *.app
+*.pdb
+
+# Intermediate folders
+build
+bin
+.vs
+*.aps
+
+# user files
+*.user
+*.user_layout
+*.ini
+*.task

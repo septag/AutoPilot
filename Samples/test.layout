@@ -1,0 +1,32 @@
+{
+	"Parameters": {
+		"Pos": [
+			24,
+			48
+		],
+		"MaxWidth": 384
+	},
+	"Nodes": [
+		{
+			"Id": "1342B337-D83C-4502-A12F-3CBB20C73F65",
+			"Pos": [
+				312,
+				72
+			]
+		},
+		{
+			"Id": "CE3F5B9E-EC33-4170-B2DA-29F5EDE45E37",
+			"Pos": [
+				24,
+				168
+			]
+		}
+	],
+	"Settings": {
+		"Minimap": true,
+		"Pan": [
+			0,
+			0
+		]
+	}
+}
