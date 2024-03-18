@@ -46,7 +46,8 @@ Currently supported IDEs are:
 This program is at a very early stage and is experimental. I'm just testing the idea to try out the use cases and get people's feedback. So expect bugs and incomplete features. But feedbacks and comments are always welcomed of course. 
 If you want to send a personal feedback, I'm on discord with `septag` Id.
 
-
+## Acknowledgements
+First and foremost, thanks for [Dear ImGui library](https://github.com/ocornut/imgui), to make it easy, fast and actually enjoyable to write GUI programs. 
 
 
 
