@@ -2845,7 +2845,6 @@ bool Node_TranslateString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
     }
 
     MemTempAllocator tmpAlloc;
-    const char** pinNames = nullptr;
     bool isValueEmpty = false;
     for (uint32 i = 0; i < data->items.Count(); i++) {
         Item& item = data->items[i];

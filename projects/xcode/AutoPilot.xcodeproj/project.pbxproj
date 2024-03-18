@@ -56,9 +56,10 @@
 /* Begin PBXFileReference section */
 		140266BB2AB4DA8100992487 /* BuiltinProps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BuiltinProps.h; path = ../../code/BuiltinProps.h; sourceTree = "<group>"; };
 		140266BC2AB4DA8100992487 /* BuiltinProps.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = BuiltinProps.cpp; path = ../../code/BuiltinProps.cpp; sourceTree = "<group>"; };
-		141CFCF32A44A7CC003D3A4D /* Grady.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Grady.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		141CFCF32A44A7CC003D3A4D /* AutoPilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AutoPilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		144EEA222A44C72E007226AA /* MainMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MainMac.mm; path = ../../code/MainMac.mm; sourceTree = "<group>"; };
 		144EEA242A44C764007226AA /* Main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Main.cpp; path = ../../code/Main.cpp; sourceTree = "<group>"; };
+		14543B872BA90895004927D2 /* AutoPilot.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = AutoPilot.entitlements; sourceTree = "<group>"; };
 		149F82B92A5C25AD00E5D366 /* MainMenu.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = MainMenu.storyboard; sourceTree = "<group>"; };
 		149F82BA2A5C25AD00E5D366 /* Info-macOS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-macOS.plist"; sourceTree = "<group>"; };
 		14A321962A5C24D700AD0D05 /* Jobs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Jobs.h; sourceTree = "<group>"; };
@@ -117,7 +118,6 @@
 		14B7DA722B8A3A6E008AB289 /* SystemMac.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SystemMac.cpp; sourceTree = "<group>"; };
 		14B7DA732B8A3A6E008AB289 /* Pools.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Pools.h; sourceTree = "<group>"; };
 		14B7DA742B8A3A6E008AB289 /* Arrays.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Arrays.h; sourceTree = "<group>"; };
-		14CCB1F42A45AD050033E3A4 /* Grady.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Grady.entitlements; sourceTree = "<group>"; };
 		14CCB1FA2A51B3EA0033E3A4 /* GuiTextView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GuiTextView.h; path = ../../code/GuiTextView.h; sourceTree = "<group>"; };
 		14CCB1FB2A51B3EA0033E3A4 /* GuiTextView.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GuiTextView.cpp; path = ../../code/GuiTextView.cpp; sourceTree = "<group>"; };
 		14CCB1FF2A51B9200033E3A4 /* Main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Main.h; path = ../../code/Main.h; sourceTree = "<group>"; };
@@ -171,6 +171,7 @@
 		141CFCEA2A44A7CC003D3A4D = {
 			isa = PBXGroup;
 			children = (
+				14543B872BA90895004927D2 /* AutoPilot.entitlements */,
 				AB52BD632B27725B006F2842 /* Common.h */,
 				AB8D1EEE2B23599D006E6C83 /* TaskMan.cpp */,
 				AB8D1EED2B23599D006E6C83 /* TaskMan.h */,
@@ -196,7 +197,6 @@
 				14CCB1FF2A51B9200033E3A4 /* Main.h */,
 				14CCB1FB2A51B3EA0033E3A4 /* GuiTextView.cpp */,
 				14CCB1FA2A51B3EA0033E3A4 /* GuiTextView.h */,
-				14CCB1F42A45AD050033E3A4 /* Grady.entitlements */,
 				144EEA242A44C764007226AA /* Main.cpp */,
 				144EEA222A44C72E007226AA /* MainMac.mm */,
 				141CFCF42A44A7CC003D3A4D /* Products */,
@@ -208,7 +208,7 @@
 		141CFCF42A44A7CC003D3A4D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				141CFCF32A44A7CC003D3A4D /* Grady.app */,
+				141CFCF32A44A7CC003D3A4D /* AutoPilot.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -317,9 +317,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		141CFCF22A44A7CC003D3A4D /* Grady */ = {
+		141CFCF22A44A7CC003D3A4D /* AutoPilot */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 141CFD062A44A7CD003D3A4D /* Build configuration list for PBXNativeTarget "Grady" */;
+			buildConfigurationList = 141CFD062A44A7CD003D3A4D /* Build configuration list for PBXNativeTarget "AutoPilot" */;
 			buildPhases = (
 				141CFCEF2A44A7CC003D3A4D /* Sources */,
 				141CFCF02A44A7CC003D3A4D /* Frameworks */,
@@ -329,9 +329,9 @@
 			);
 			dependencies = (
 			);
-			name = Grady;
-			productName = Grady;
-			productReference = 141CFCF32A44A7CC003D3A4D /* Grady.app */;
+			name = AutoPilot;
+			productName = AutoPilot;
+			productReference = 141CFCF32A44A7CC003D3A4D /* AutoPilot.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -341,14 +341,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1520;
 				TargetAttributes = {
 					141CFCF22A44A7CC003D3A4D = {
 						CreatedOnToolsVersion = 14.2;
 					};
 				};
 			};
-			buildConfigurationList = 141CFCEE2A44A7CC003D3A4D /* Build configuration list for PBXProject "Grady" */;
+			buildConfigurationList = 141CFCEE2A44A7CC003D3A4D /* Build configuration list for PBXProject "AutoPilot" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -361,7 +361,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				141CFCF22A44A7CC003D3A4D /* Grady */,
+				141CFCF22A44A7CC003D3A4D /* AutoPilot */,
 			);
 		};
 /* End PBXProject section */
@@ -430,6 +430,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -469,7 +470,7 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"CONFIG_APP_NAME=\\\"Grady\\\"",
+					"CONFIG_APP_NAME=\\\"AutoPilot\\\"",
 					_DEBUG,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -478,7 +479,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -491,6 +492,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -527,14 +529,14 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = "CONFIG_APP_NAME=\"Grady\"";
+				GCC_PREPROCESSOR_DEFINITIONS = "CONFIG_APP_NAME=\\\"AutoPilot\\\"";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -547,7 +549,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Grady.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AutoPilot.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -571,9 +573,10 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../code/ImGui/freetype";
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = "-lfreetype";
-				PRODUCT_BUNDLE_IDENTIFIER = com.junkyard.Grady;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junkyard.autopilot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				USE_HEADERMAP = NO;
@@ -585,7 +588,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Grady.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AutoPilot.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -604,9 +607,10 @@
 					"@executable_path/../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../code/ImGui/freetype";
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = "-lfreetype";
-				PRODUCT_BUNDLE_IDENTIFIER = com.junkyard.Grady;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junkyard.autopilot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				USE_HEADERMAP = NO;
@@ -616,7 +620,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		141CFCEE2A44A7CC003D3A4D /* Build configuration list for PBXProject "Grady" */ = {
+		141CFCEE2A44A7CC003D3A4D /* Build configuration list for PBXProject "AutoPilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				141CFD042A44A7CD003D3A4D /* Debug */,
@@ -625,7 +629,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		141CFD062A44A7CD003D3A4D /* Build configuration list for PBXNativeTarget "Grady" */ = {
+		141CFD062A44A7CD003D3A4D /* Build configuration list for PBXNativeTarget "AutoPilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				141CFD072A44A7CD003D3A4D /* Debug */,

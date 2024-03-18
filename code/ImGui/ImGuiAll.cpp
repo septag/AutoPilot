@@ -335,9 +335,9 @@ void imguiSaveState()
 #include "../Core/MathTypes.h"
 #define PI_2 kPI2
 
-inline float damped_gravity(float limtime) 
+inline float CalcDampedGravity(float limtime)
 {
-    float time = 0.0f, initialHeight = 10.f, height = initialHeight, velocity = 0.f, prtime = 0.0f;
+    float time = 0.0f, initialHeight = 10.f, height = initialHeight, prtime = 0.0f;
 
     while (height >= 0.0) {
         if (prtime >= limtime) { return height / 10.f; }
@@ -348,7 +348,7 @@ inline float damped_gravity(float limtime)
     return 0.f;
 }
 
-inline ImColor color_alpha(ImColor c, float alpha) { c.Value.w *= alpha * ImGui::GetStyle().Alpha; return c; }
+inline ImColor MakeColorAlpha(ImColor c, float alpha) { c.Value.w *= alpha * ImGui::GetStyle().Alpha; return c; }
 
 template <typename _PF>
 inline void SpinnerCircle(_PF point_func, ImU32 dbc, float dth, ImVec2 centre, int num_segments) 
@@ -404,13 +404,13 @@ void imguiSpinnerAng(const char *label, float radius, float thickness, const ImC
     SpinnerCircle([&] (int i)->ImVec2 {
         const float a = start + (i * (PI_2 / (num_segments - 1)));
         return ImVec2(ImCos(a) * radius, ImSin(a) * radius);
-    }, color_alpha(bg, 1.f), thickness, centre, num_segments);
+    }, MakeColorAlpha(bg, 1.f), thickness, centre, num_segments);
 
-    const float b = (mode == 1) ? damped_gravity(ImSin(start * 1.1f)) * angle : 0.f;
+    const float b = (mode == 1) ? CalcDampedGravity(ImSin(start * 1.1f)) * angle : 0.f;
     SpinnerCircle([&] (int i)->ImVec2 {
         const float a = start - b + (i * angle / num_segments);
         return ImVec2(ImCos(a) * radius, ImSin(a) * radius);
-    }, color_alpha(color, 1.f), thickness, centre, num_segments);
+    }, MakeColorAlpha(color, 1.f), thickness, centre, num_segments);
 }
 
 int imguiPlotDateDuration(const char* label, void (*values_getter)(void* data, int idx, float* outValue, time_t* outTm, const char** outMeta), 

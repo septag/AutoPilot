@@ -32,11 +32,12 @@
 *.app
 *.pdb
 
-# Intermediate folders
+# Intermediate folders and files
 build
 bin
 .vs
 *.aps
+*.xcuserstate
 
 # user files
 *.user

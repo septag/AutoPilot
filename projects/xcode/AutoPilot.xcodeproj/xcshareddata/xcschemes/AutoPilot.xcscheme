@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1500"
+   LastUpgradeVersion = "1520"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "141CFCF22A44A7CC003D3A4D"
-               BuildableName = "Grady.app"
-               BlueprintName = "Grady"
-               ReferencedContainer = "container:Grady.xcodeproj">
+               BuildableName = "AutoPilot.app"
+               BlueprintName = "AutoPilot"
+               ReferencedContainer = "container:AutoPilot.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "141CFCF22A44A7CC003D3A4D"
-            BuildableName = "Grady.app"
-            BlueprintName = "Grady"
-            ReferencedContainer = "container:Grady.xcodeproj">
+            BuildableName = "AutoPilot.app"
+            BlueprintName = "AutoPilot"
+            ReferencedContainer = "container:AutoPilot.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
@@ -64,16 +64,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "141CFCF22A44A7CC003D3A4D"
-            BuildableName = "Grady.app"
-            BlueprintName = "Grady"
-            ReferencedContainer = "container:Grady.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
