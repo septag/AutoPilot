@@ -2931,9 +2931,10 @@ bool Node_TranslateString::Execute(NodeGraph* graph, NodeHandle nodeHandle, cons
         }
     }
 
+    // If input text doesn't meet any condition, just pass it through
     if (!outPin.ready) {
-        strPrintFmt(data->errorMsg, sizeof(data->errorMsg), "Cannot translate incoming value '%s'. Item not found", valuePin.data.str);
-        return false;
+        outPin.data.SetString(valuePin.data.str);
+        outPin.ready = true;
     }
 
     return true;
