@@ -4,7 +4,7 @@
 //
 // Original code by Joseph A. Adams (joeyadams3.14159@gmail.com)
 // 
-// sjson.h - v1.1.1 - Fast single header json encoder/decoder
+// sjson.h - v1.2.0 - Fast single header json encoder/decoder
 //		This is actually a fork of Joseph's awesome Json encoder/decoder code from his repo:
 //		https://github.com/rustyrussell/ccan/tree/master/ccan/json
 //		The encoder/decoder code is almost the same. What I did was adding object pools and string pages (sjson_context)
@@ -62,6 +62,7 @@
 //
 // --- HIGHER LEVEL LOOKUP
 //	   sjson_get_int			Gets an integer value from a child of the specified parent node, sets to 'default_val' if node is not found
+//     sjson_get_int64          Gets an 64-bit integer value from a child of the specified parent node, sets to 'default_val' if node is not found
 //	   sjson_get_float			Gets a float value from a child of the specified parent node, sets to 'default_val' if node is not found
 //	   sjson_get_double			Gets a double value from a child of the specified parent node, sets to 'default_val' if node is not found
 //	   sjson_get_string			Gets a string value from a child of the specified parent node, sets to 'default_val' if node is not found
@@ -138,7 +139,7 @@
 //			sjson_reset_context(ctx);		// reset the buffers, make sure you don't need json1 data
 //			sjson_decode(ctx, json2);		// decode another json
 //			...
- //
+//
 #pragma once
 
 #ifndef SJSON_H_
@@ -164,6 +165,7 @@ typedef unsigned char _Bool;
 #   include <stdbool.h>
 #endif
 #include <stddef.h>
+#include <stdint.h>
 
 // Json DOM object type
 typedef enum sjson_tag {
@@ -321,7 +323,6 @@ bool sjson_check(const sjson_node* node, char errmsg[256]);
 #   define __STDC_WANT_LIB_EXT1__ 1
 #endif
 
-#include <stdint.h>
 #include <stdlib.h>
 
 #ifndef sjson_malloc
