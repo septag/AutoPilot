@@ -186,7 +186,7 @@ struct Node_CreateProcess final : NodeImpl
 
         // runtime
         int  cmdTextInputWidth;
-        char errorStr[1024];
+        char errorStr[2048];
         SysProcess* runningProc;
         int textSelectionStart;
         int textSelectionEnd;

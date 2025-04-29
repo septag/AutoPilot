@@ -343,8 +343,13 @@ bool Node_CreateProcess::Execute(NodeGraph* graph, NodeHandle nodeHandle, const 
                 outPin.ready = false;
 
                 if (data->fatalErrorOnFail) {
-                    strPrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error code '%d': %s", proc.GetExitCode(), cmd);
+                    char errorData[2048];
+                    uint32 bytesRead = proc.ReadStdErr(errorData, sizeof(errorData)-1);
+                    errorData[bytesRead] = 0;
+
+                    strPrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error code '%d': %s\n%s", proc.GetExitCode(), cmd, errorData);
                     event.ErrorFmt("Process failed with return code: %d", proc.GetExitCode());
+
                     return false;
                 }
             }

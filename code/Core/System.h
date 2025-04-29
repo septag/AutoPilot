@@ -465,6 +465,7 @@ private:
     void* mProcess;
     void* mStdOutPipeRead;
     void* mStdErrPipeRead;
+    void* mStdInPipeWrite;
     
 #if PLATFORM_POSIX
     int mExitCode;

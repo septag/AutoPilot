@@ -612,7 +612,8 @@ void sysGetSysInfo(SysInfo* info)
 SysProcess::SysProcess() :
     mProcess(INVALID_HANDLE_VALUE),
     mStdOutPipeRead(INVALID_HANDLE_VALUE),
-    mStdErrPipeRead(INVALID_HANDLE_VALUE)
+    mStdErrPipeRead(INVALID_HANDLE_VALUE),
+    mStdInPipeWrite(INVALID_HANDLE_VALUE)
 {
 }
 
@@ -622,6 +623,8 @@ SysProcess::~SysProcess()
         CloseHandle(mStdOutPipeRead);
     if (mStdErrPipeRead != INVALID_HANDLE_VALUE)
         CloseHandle(mStdErrPipeRead);
+    if (mStdInPipeWrite != INVALID_HANDLE_VALUE)
+        CloseHandle(mStdInPipeWrite);
     if (mProcess != INVALID_HANDLE_VALUE)
         CloseHandle(mProcess);
 }
@@ -632,6 +635,7 @@ bool SysProcess::Run(const char* cmdline, SysProcessFlags flags, const char* cwd
 
     HANDLE stdOutPipeWrite = INVALID_HANDLE_VALUE;
     HANDLE stdErrPipeWrite = INVALID_HANDLE_VALUE;
+    HANDLE stdInPipe = INVALID_HANDLE_VALUE;
     BOOL r;
     BOOL inheritHandles = (flags & SysProcessFlags::InheritHandles) == SysProcessFlags::InheritHandles ? TRUE : FALSE;
 
@@ -646,12 +650,18 @@ bool SysProcess::Run(const char* cmdline, SysProcessFlags flags, const char* cwd
         r = CreatePipe(&mStdErrPipeRead, &stdErrPipeWrite, &saAttr, 0);
         ASSERT_MSG(r, "CreatePipe failed");
 
+        r = CreatePipe(&stdInPipe, &mStdInPipeWrite, &saAttr, 0);
+        ASSERT_MSG(r, "CreatePipe failed");
+
         if (inheritHandles) {
             r = SetHandleInformation(mStdOutPipeRead, HANDLE_FLAG_INHERIT, 0);
             ASSERT_MSG(r, "SetHandleInformation for pipe failed");
             r = SetHandleInformation(mStdErrPipeRead, HANDLE_FLAG_INHERIT, 0);
             ASSERT_MSG(r, "SetHandleInformation for pipe failed");
+            // r = SetHandleInformation(mStdInPipeWrite, HANDLE_FLAG_INHERIT, 0);
+            // ASSERT_MSG(r, "SetHandleInformation for pipe failed");
         }
+
     }
 
     PROCESS_INFORMATION procInfo {};
@@ -661,7 +671,7 @@ bool SysProcess::Run(const char* cmdline, SysProcessFlags flags, const char* cwd
         startInfo.dwFlags = STARTF_USESTDHANDLES;
         startInfo.hStdOutput = stdOutPipeWrite;
         startInfo.hStdError = stdErrPipeWrite;
-        startInfo.hStdInput = INVALID_HANDLE_VALUE; // TODO
+        startInfo.hStdInput = mStdInPipeWrite;
     }
 
     MemTempAllocator tmpAlloc;
@@ -685,6 +695,7 @@ bool SysProcess::Run(const char* cmdline, SysProcessFlags flags, const char* cwd
     if ((flags & SysProcessFlags::CaptureOutput) == SysProcessFlags::CaptureOutput) {
         CloseHandle(stdOutPipeWrite);
         CloseHandle(stdErrPipeWrite);
+        CloseHandle(stdInPipe);
     }
 
     return true;
@@ -751,7 +762,9 @@ void SysProcess::Abort()
 
 int SysProcess::GetExitCode() const
 {
-    ASSERT(mProcess != INVALID_HANDLE_VALUE);
+    if (mProcess == INVALID_HANDLE_VALUE)
+        return -1;
+
     DWORD exitCode = UINT32_MAX;
     GetExitCodeProcess(mProcess, &exitCode);
     return static_cast<int>(exitCode);
