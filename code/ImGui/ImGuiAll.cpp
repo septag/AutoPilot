@@ -1,9 +1,9 @@
-#include "../Core/Base.h"
+#include "Core.h"
 
-#if PLATFORM_WINDOWS
-    #define COM_NO_WINDOWS_H
-    #include "../Core/IncludeWin.h"
-#endif
+//#if PLATFORM_WINDOWS
+//    #define COM_NO_WINDOWS_H
+//    #include "../Core/IncludeWin.h"
+//#endif
 
 #include "imgui.cpp"
 #include "imgui_freetype.cpp"
@@ -22,8 +22,6 @@
     #include "imgui_demo.cpp"
 #endif
 
-#include "../Core/Allocators.h"
-#include "../Core/System.h"
 #include "../Main.h"
 
 #include "ImGuiAll.h"
@@ -135,8 +133,8 @@ static void SetImGuiTheme()
 bool imguiInitialize()
 {
     ImGui::SetAllocatorFunctions(
-        [](size_t size, void*)->void* { return memAlloc(size); },
-        [](void* ptr, void*) { memFree(ptr); });
+        [](size_t size, void*)->void* { return Mem::Alloc(size); },
+        [](void* ptr, void*) { Mem::Free(ptr); });
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -157,7 +155,7 @@ bool imguiInitialize()
     io.IniFilename = nullptr;
 
     Path iniFilepath;
-    pathGetCacheDir(iniFilepath.Ptr(), sizeof(iniFilepath), CONFIG_APP_NAME);
+    OS::GetCacheDir(iniFilepath.Ptr(), sizeof(iniFilepath), CONFIG_APP_NAME);
     ASSERT(iniFilepath.IsDir());
     iniFilepath = Path::Join(iniFilepath, CONFIG_IMGUI_SETTINGS_FILENAME);
     ImGui::LoadIniSettingsFromDisk(iniFilepath.CStr());
@@ -193,7 +191,7 @@ bool imguiLoadFonts(float dpiScale)
 {
     #if PLATFORM_WINDOWS
         Path fontsDir;
-        pathWin32GetFolder(SysWin32Folder::Fonts, fontsDir.Ptr(), sizeof(fontsDir));
+        OS::Win32GetFolder(OSWin32Folder::Fonts, fontsDir.Ptr(), sizeof(fontsDir));
         Path defaultFontPath = Path::Join(fontsDir, "Micross.ttf");
         Path defaultMonoFontPath = Path::Join(fontsDir, "consola.ttf");
         float fontSize = 14.0f;
@@ -269,7 +267,7 @@ static ImGuiID tmpDockSpaceOverViewport(const ImGuiViewport* viewport = nullptr,
         hostWindowFlags |= ImGuiWindowFlags_NoBackground;
 
     char label[32];
-    strPrintFmt(label, sizeof(label), "DockSpaceViewport_%08X", viewport->ID);
+    Str::PrintFmt(label, sizeof(label), "DockSpaceViewport_%08X", viewport->ID);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -326,14 +324,13 @@ Docking& imguiGetDocking()
 void imguiSaveState()
 {
     Path iniFilepath;
-    pathGetCacheDir(iniFilepath.Ptr(), sizeof(iniFilepath), CONFIG_APP_NAME);
+    OS::GetCacheDir(iniFilepath.Ptr(), sizeof(iniFilepath), CONFIG_APP_NAME);
     iniFilepath = Path::Join(iniFilepath, CONFIG_IMGUI_SETTINGS_FILENAME);
     ImGui::SaveIniSettingsToDisk(iniFilepath.CStr());
 }
 
 // imspinner.h
-#include "../Core/MathTypes.h"
-#define PI_2 kPI2
+#define PI_2 M_PI2
 
 inline float CalcDampedGravity(float limtime)
 {
@@ -434,7 +431,7 @@ int imguiPlotDateDuration(const char* label, void (*values_getter)(void* data, i
     ItemSize(total_bb, style.FramePadding.y);
     if (!ItemAdd(total_bb, 0, &frame_bb))
         return -1;
-    const bool hovered = ItemHoverable(frame_bb, id);
+    const bool hovered = ItemHoverable(frame_bb, id, 0);
 
     // Determine scale from values if not specified
     if (scale_min == FLT_MAX || scale_max == FLT_MAX)

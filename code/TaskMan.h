@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/StringUtil.h"
 #include "Common.h"
 #include <time.h>
 
@@ -110,5 +109,5 @@ void tskBeginGraphExecute(TskGraphHandle graphHandle, TskGraphHandle redirectGra
 void tskEndGraphExecute(TskGraphHandle graphHandle, const char* metaData, bool withError = false);
 
 WksFileHandle tskGetFileHandle(TskGraphHandle graphHandle);
-Span<TskSummary> tskGetHistory(TskGraphHandle graphHandle, Allocator* alloc);
+Span<TskSummary> tskGetHistory(TskGraphHandle graphHandle, MemAllocator* alloc);
 void tskClearHistory(TskGraphHandle graphHandle);

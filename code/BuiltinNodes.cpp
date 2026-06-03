@@ -1,3 +1,4 @@
+#include "Core.h"
 #include "BuiltinNodes.h"
 
 #include "External/sjson/sjson.h"
@@ -7,10 +8,6 @@
 #else
 #include <dirent.h>
 #endif
-
-#include "Core/Log.h"
-#include "Core/System.h"
-#include "Core/Settings.h"
 
 #include "ImGui/ImGuiAll.h"
 #include "GuiUtil.h"
@@ -63,7 +60,7 @@ static bool ParseFormatText(Blob* bufferOut, const char* text, NodeGraph* graph,
             PinHandle pinHandle = pins[i];
             Pin& pin = ngGetPinData(graph, pinHandle);
             const char* pinName = pin.dynName ? GetString(pin.dynName) : pin.desc.name;
-            if (strIsEqualNoCase(name, pinName))
+            if (Str::IsEqualNoCase(name, pinName))
                 return pin.ready ? pin.data.str : nullptr;
         }
 
@@ -96,29 +93,29 @@ static bool ParseFormatText(Blob* bufferOut, const char* text, NodeGraph* graph,
     size_t dummySize;
 
     if (prependStr) 
-        blob.Write(prependStr, strLen(prependStr));
+        blob.Write(prependStr, Str::Len(prependStr));
 
     // Preprocess pass #1: Include or get rid of ?{} sections (optional)
     while (*c != 0) {
         if (*c == '?' && *(c + 1) && *(c + 1) == '{') {
             const char* closeBracket = FindNextCloseBracket(c + 2);
             if (!closeBracket || closeBracket == (c + 2)) {
-                strPrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
+                Str::PrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
                 return false;
             }
 
-            const char* colon = strFindChar(c + 2, ':');
+            const char* colon = Str::FindChar(c + 2, ':');
             if (colon == nullptr || colon > closeBracket) {
-                strPrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
+                Str::PrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
                 return false;
             }
 
-            strCopyCount(varName, sizeof(varName), c + 2, PtrToInt<uint32>((void*)(colon - c - 2)));
+            Str::CopyCount(varName, sizeof(varName), c + 2, PtrToInt<uint32>((void*)(colon - c - 2)));
             if (c > cropStart)
                 blob.Write(cropStart, PtrToInt<uint32>((void*)(c - cropStart)));
 
             const char* var = FindVar(varName);
-            if (var != nullptr && var[0] && !strIsEqual(var, "0")) {
+            if (var != nullptr && var[0] && !Str::IsEqual(var, "0")) {
                 if (closeBracket > colon + 1)
                     blob.Write(colon + 1, PtrToInt<uint32>((void*)(closeBracket - colon - 1)));
             }
@@ -129,7 +126,7 @@ static bool ParseFormatText(Blob* bufferOut, const char* text, NodeGraph* graph,
         c++;
     }
     if (c > cropStart)
-        blob.Write(cropStart, strLen(cropStart));
+        blob.Write(cropStart, Str::Len(cropStart));
     blob.Write<char>('\0');
     blob.Detach((void**)const_cast<char**>(&c), &dummySize);
     cropStart = c;
@@ -139,20 +136,20 @@ static bool ParseFormatText(Blob* bufferOut, const char* text, NodeGraph* graph,
         if (*c == '$' && *(c + 1) && *(c + 1) == '{') {
             const char* closeBracket = FindNextCloseBracket(c + 2);
             if (!closeBracket || closeBracket == (c + 2)) {
-                strPrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
+                Str::PrintFmt(errorStr, errorStrSize, "Parsing command failed at: %s", c);
                 return false;
             }
 
             if (c > cropStart)
                 blob.Write(cropStart, PtrToInt<uint32>((void*)(c - cropStart)));
             
-            strCopyCount(varName, sizeof(varName), c + 2, PtrToInt<uint32>((void*)(closeBracket - c - 2)));
+            Str::CopyCount(varName, sizeof(varName), c + 2, PtrToInt<uint32>((void*)(closeBracket - c - 2)));
             const char* var = FindVar(varName);
             if (!var) {
-                strPrintFmt(errorStr, errorStrSize, "Parsing command failed. Variable not found or invalid: %s", varName);
+                Str::PrintFmt(errorStr, errorStrSize, "Parsing command failed. Variable not found or invalid: %s", varName);
                 return false;
             }
-            blob.Write(var, strLen(var));
+            blob.Write(var, Str::Len(var));
 
             c = closeBracket;
             cropStart = c + 1;
@@ -161,7 +158,7 @@ static bool ParseFormatText(Blob* bufferOut, const char* text, NodeGraph* graph,
         c++;
     }
     if (c > cropStart)
-        blob.Write(cropStart, strLen(cropStart));
+        blob.Write(cropStart, Str::Len(cropStart));
     blob.Write<char>('\0');
 
     return true;
@@ -173,7 +170,7 @@ bool Node_DebugMessage::Execute(NodeGraph* graph, NodeHandle nodeHandle, const A
 {
     Pin& textPin = ngGetPinData(graph, inPins[0]);
     ASSERT(textPin.ready);
-    logInfo(textPin.data.str);
+    LOG_INFO(textPin.data.str);
     return true;
 }
 
@@ -191,7 +188,7 @@ bool Node_UpperCase::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arra
     Pin& outputPin = ngGetPinData(graph, outPins[0]);
     
     ASSERT(textPin.ready);
-    strToUpper(textPin.data.str, uint32(textPin.data.size) + 1, textPin.data.str);
+    Str::ToUpper(textPin.data.str, uint32(textPin.data.size) + 1, textPin.data.str);
     outputPin.data.SetString(textPin.data.str, uint32(textPin.data.size));
 
     outputPin.ready = true;
@@ -213,7 +210,7 @@ bool Node_LowerCase::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arra
     Pin& outputPin = ngGetPinData(graph, outPins[0]);
     
     ASSERT(textPin.ready);
-    strToLower(textPin.data.str, uint32(textPin.data.size) + 1, textPin.data.str);
+    Str::ToLower(textPin.data.str, uint32(textPin.data.size) + 1, textPin.data.str);
     outputPin.data.SetString(textPin.data.str, uint32(textPin.data.size));
 
     outputPin.ready = true;
@@ -232,11 +229,11 @@ void Node_LowerCase::Register()
 bool Node_CreateProcess::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_CreateProcess::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_CreateProcess::Data>();
     node.data = data;
 
-    strCopy(data->title, sizeof(data->title), node.desc.name);
-    strCopy(data->executeCmd, sizeof(data->executeCmd), "${Command} ${Arg1}");
+    Str::Copy(data->title, sizeof(data->title), node.desc.name);
+    Str::Copy(data->executeCmd, sizeof(data->executeCmd), "${Command} ${Arg1}");
     data->checkRetCode = true;
     data->fatalErrorOnFail = true;
     data->cmdTextInputWidth = 550;
@@ -247,12 +244,12 @@ bool Node_CreateProcess::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_CreateProcess::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_CreateProcess::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_CreateProcess::Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->title, sizeof(data->title), copyData->title);
-    strCopy(data->executeCmd, sizeof(data->executeCmd), copyData->executeCmd);
+    Str::Copy(data->title, sizeof(data->title), copyData->title);
+    Str::Copy(data->executeCmd, sizeof(data->executeCmd), copyData->executeCmd);
     data->fatalErrorOnFail = copyData->fatalErrorOnFail;
     data->checkRetCode = copyData->checkRetCode;
     data->successRetCode = copyData->successRetCode;
@@ -265,7 +262,7 @@ bool Node_CreateProcess::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHa
 void Node_CreateProcess::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_CreateProcess::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -301,9 +298,9 @@ bool Node_CreateProcess::Execute(NodeGraph* graph, NodeHandle nodeHandle, const 
         output->mBlob.SetSize(output->mBlob.Size() - 1);    // Remove the last null-terminator
     startOffset = output->mBlob.Size();
     
-    SysProcess proc;
+    OSProcess proc;
     event.Info(cmd);
-    if (proc.Run(cmd, SysProcessFlags::CaptureOutput|SysProcessFlags::InheritHandles|SysProcessFlags::DontCreateConsole, cwd)) {
+    if (proc.Run(cmd, OSProcessFlags::CaptureOutput|OSProcessFlags::InheritHandles|OSProcessFlags::DontCreateConsole, cwd)) {
         data->runningProc = &proc;
         char buffer[4096];
         uint32 bytesRead;
@@ -347,7 +344,7 @@ bool Node_CreateProcess::Execute(NodeGraph* graph, NodeHandle nodeHandle, const 
                     uint32 bytesRead = proc.ReadStdErr(errorData, sizeof(errorData)-1);
                     errorData[bytesRead] = 0;
 
-                    strPrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error code '%d': %s\n%s", proc.GetExitCode(), cmd, errorData);
+                    Str::PrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error code '%d': %s\n%s", proc.GetExitCode(), cmd, errorData);
                     event.ErrorFmt("Process failed with return code: %d", proc.GetExitCode());
 
                     return false;
@@ -367,7 +364,7 @@ bool Node_CreateProcess::Execute(NodeGraph* graph, NodeHandle nodeHandle, const 
         retCodePin.ready = true;
     }
     else {
-        strPrintFmt(data->errorStr, sizeof(data->errorStr), "Running command failed: %s", cmd);
+        Str::PrintFmt(data->errorStr, sizeof(data->errorStr), "Running command failed: %s", cmd);
         event.Error("Command failed");
         return false;
     }
@@ -415,21 +412,21 @@ bool Node_CreateProcess::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
             if (ImGui::Button(pinName)) {
                 char tmp[sizeof(data->executeCmd)];
                 char pasteText[32];
-                strPrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
+                Str::PrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
                 if (data->textSelectionStart != data->textSelectionEnd) {
                     if (data->textSelectionEnd < data->textSelectionStart)
                         Swap<int>(data->textSelectionStart, data->textSelectionEnd);
-                    strCopyCount(tmp, sizeof(tmp), data->executeCmd, data->textSelectionStart);
-                    strConcat(tmp, sizeof(tmp), pasteText);
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->executeCmd + data->textSelectionEnd);
+                    Str::CopyCount(tmp, sizeof(tmp), data->executeCmd, data->textSelectionStart);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->executeCmd + data->textSelectionEnd);
                 }
                 else {
-                    strCopyCount(tmp, sizeof(tmp), data->executeCmd, data->textCursor);
-                    strConcat(tmp, sizeof(tmp), pasteText);
+                    Str::CopyCount(tmp, sizeof(tmp), data->executeCmd, data->textCursor);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
                     int textCursor = data->textCursor;
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->executeCmd + textCursor);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->executeCmd + textCursor);
                 }
                 memcpy(data->executeCmd, tmp, sizeof(data->executeCmd));
                 refocus = true;
@@ -492,8 +489,8 @@ bool Node_CreateProcess::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandl
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
-    strCopy(data->executeCmd, sizeof(data->executeCmd), sjson_get_string(jparent, "ExecuteCmd", ""));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->executeCmd, sizeof(data->executeCmd), sjson_get_string(jparent, "ExecuteCmd", ""));
     data->successRetCode = sjson_get_int(jparent, "SuccessRetCode", 0);
     data->cmdTextInputWidth = sjson_get_int(jparent, "CmdTextInputWidth", 550);
     data->checkRetCode = sjson_get_bool(jparent, "CheckRetCode", true);
@@ -537,10 +534,10 @@ void Node_CreateProcess::Register()
 bool Node_ShellExecute::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_ShellExecute::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_ShellExecute::Data>();
     node.data = data;
 
-    strCopy(data->title, sizeof(data->title), node.desc.name);
+    Str::Copy(data->title, sizeof(data->title), node.desc.name);
     data->fatalErrorOnFail = true;
     return true;
 }
@@ -548,13 +545,13 @@ bool Node_ShellExecute::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_ShellExecute::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_ShellExecute::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_ShellExecute::Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->title, sizeof(data->title), copyData->title);
-    strCopy(data->executeArgs, sizeof(data->executeArgs), copyData->executeArgs);
-    strCopy(data->operation, sizeof(data->operation), copyData->operation);
+    Str::Copy(data->title, sizeof(data->title), copyData->title);
+    Str::Copy(data->executeArgs, sizeof(data->executeArgs), copyData->executeArgs);
+    Str::Copy(data->operation, sizeof(data->operation), copyData->operation);
     data->fatalErrorOnFail = copyData->fatalErrorOnFail;
     data->runAsAdmin = copyData->runAsAdmin;
     data->selectedOp = copyData->selectedOp;
@@ -565,7 +562,7 @@ bool Node_ShellExecute::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHan
 void Node_ShellExecute::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_ShellExecute::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -590,11 +587,11 @@ bool Node_ShellExecute::Execute(NodeGraph* graph, NodeHandle nodeHandle, const A
     Pin& cwdPin = ngGetPinData(graph, inPins[2]);
     const char* cwd = cwdPin.ready ? cwdPin.data.str : nullptr;
 
-    uint32 fullCmdSize = strLen(cmd) + strLen(args) + 2;
+    uint32 fullCmdSize = Str::Len(cmd) + Str::Len(args) + 2;
     char* fullCmd = tmpAlloc.MallocTyped<char>(fullCmdSize);
-    strCopy(fullCmd, fullCmdSize, cmd);
-    strConcat(fullCmd, fullCmdSize, " ");
-    strConcat(fullCmd, fullCmdSize, args);
+    Str::Copy(fullCmd, fullCmdSize, cmd);
+    Str::Concat(fullCmd, fullCmdSize, " ");
+    Str::Concat(fullCmd, fullCmdSize, args);
     event.Info(fullCmd);
 
     Pin& execPin = ngGetPinData(graph, outPins[0]);
@@ -603,25 +600,25 @@ bool Node_ShellExecute::Execute(NodeGraph* graph, NodeHandle nodeHandle, const A
     if (data->runAsAdmin)
         operation = "runas";
 
-    SysWin32ShellExecuteResult r = sysWin32ShellExecute(cmd, data->executeArgs[0] ? data->executeArgs : nullptr, cwd, 
-                                                        SysWin32ShowWindow::Default, operation);
-    if (r == SysWin32ShellExecuteResult::Ok) {
+    OSWin32ShellExecuteResult r = OS::Win32ShellExecute(cmd, data->executeArgs[0] ? data->executeArgs : nullptr, cwd, 
+                                                         OSWin32ShowWindow::Default, operation);
+    if (r == OSWin32ShellExecuteResult::Ok) {
         execPin.ready = true;
     }
     else {
         if (data->fatalErrorOnFail) {
             const char* errorReason = "Unknown";
             switch (r) {
-            case SysWin32ShellExecuteResult::OutOfMemory:   errorReason = "OutOfMemory"; break;
-            case SysWin32ShellExecuteResult::FileNotFound:  errorReason = "FileNotFound"; break;
-            case SysWin32ShellExecuteResult::PathNotFound:  errorReason = "PathNotFound";   break;
-            case SysWin32ShellExecuteResult::BadFormat:     errorReason = "BadFormat";  break;
-            case SysWin32ShellExecuteResult::AccessDenied:  errorReason = "AccessDenied"; break;
-            case SysWin32ShellExecuteResult::NoAssociation: errorReason = "NoAssociation";  break;
+                case OSWin32ShellExecuteResult::OutOfMemory:   errorReason = "OutOfMemory"; break;
+                case OSWin32ShellExecuteResult::FileNotFound:  errorReason = "FileNotFound"; break;
+                case OSWin32ShellExecuteResult::PathNotFound:  errorReason = "PathNotFound";   break;
+                case OSWin32ShellExecuteResult::BadFormat:     errorReason = "BadFormat";  break;
+                case OSWin32ShellExecuteResult::AccessDenied:  errorReason = "AccessDenied"; break;
+                case OSWin32ShellExecuteResult::NoAssociation: errorReason = "NoAssociation";  break;
             default:    break;
             }
 
-            strPrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error '%s': %s", errorReason, fullCmd);
+            Str::PrintFmt(data->errorStr, sizeof(data->errorStr), "Command failed with error '%s': %s", errorReason, fullCmd);
             event.ErrorFmt("Command failed with error '%s'", errorReason);
             execPin.ready = false;
             return false;
@@ -664,7 +661,7 @@ bool Node_ShellExecute::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
             if (data->selectedOp <= 0)
                 data->operation[0] = 0;
             else 
-                strCopy(data->operation, sizeof(data->operation), ops[data->selectedOp]);
+                Str::Copy(data->operation, sizeof(data->operation), ops[data->selectedOp]);
         }
     }
     ImGui::Separator();
@@ -681,21 +678,21 @@ bool Node_ShellExecute::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
             if (ImGui::Button(pinName)) {
                 char tmp[sizeof(data->executeArgs)];
                 char pasteText[32];
-                strPrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
+                Str::PrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
                 if (data->textSelectionStart != data->textSelectionEnd) {
                     if (data->textSelectionEnd < data->textSelectionStart)
                         Swap<int>(data->textSelectionStart, data->textSelectionEnd);
-                    strCopyCount(tmp, sizeof(tmp), data->executeArgs, data->textSelectionStart);
-                    strConcat(tmp, sizeof(tmp), pasteText);
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->executeArgs + data->textSelectionEnd);
+                    Str::CopyCount(tmp, sizeof(tmp), data->executeArgs, data->textSelectionStart);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->executeArgs + data->textSelectionEnd);
                 }
                 else {
-                    strCopyCount(tmp, sizeof(tmp), data->executeArgs, data->textCursor);
-                    strConcat(tmp, sizeof(tmp), pasteText);
+                    Str::CopyCount(tmp, sizeof(tmp), data->executeArgs, data->textCursor);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
                     int textCursor = data->textCursor;
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->executeArgs + textCursor);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->executeArgs + textCursor);
                 }
                 memcpy(data->executeArgs, tmp, sizeof(data->executeArgs));
                 refocus = true;
@@ -744,9 +741,9 @@ bool Node_ShellExecute::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
-    strCopy(data->executeArgs, sizeof(data->executeArgs), sjson_get_string(jparent, "ExecuteArgs", ""));
-    strCopy(data->operation, sizeof(data->operation), sjson_get_string(jparent, "Operation", ""));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->executeArgs, sizeof(data->executeArgs), sjson_get_string(jparent, "ExecuteArgs", ""));
+    Str::Copy(data->operation, sizeof(data->operation), sjson_get_string(jparent, "Operation", ""));
     data->fatalErrorOnFail = sjson_get_bool(jparent, "FatalErrorOnFail", true);
     data->runAsAdmin = sjson_get_bool (jparent, "RunAsAdmin", false);
 
@@ -759,7 +756,7 @@ bool Node_ShellExecute::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle
         "print"
     };
     for (uint32 i = 0; i < CountOf(ops); i++) {
-        if (strIsEqual(ops[i], data->operation)) {
+        if (Str::IsEqual(ops[i], data->operation)) {
             data->selectedOp = i;
             break;
         }
@@ -802,13 +799,13 @@ void Node_ShellExecute::Register()
 bool Node_JoinStringArray::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_JoinStringArray::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_JoinStringArray::Data>();
     node.data = data;
 
     data->str.SetGrowPolicy(Blob::GrowPolicy::Linear);
-    data->str.SetAllocator(memDefaultAlloc());
+    data->str.SetAllocator(Mem::GetDefaultAlloc());
 
-    strCopy(data->joinStr, sizeof(data->joinStr), "");
+    Str::Copy(data->joinStr, sizeof(data->joinStr), "");
 
     if constexpr (PLATFORM_WINDOWS)
         data->isUnixPath = false;
@@ -821,14 +818,14 @@ bool Node_JoinStringArray::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_JoinStringArray::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_JoinStringArray::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_JoinStringArray::Data>();
     node.data = data;
 
     data->str.SetGrowPolicy(Blob::GrowPolicy::Linear);
-    data->str.SetAllocator(memDefaultAlloc());
+    data->str.SetAllocator(Mem::GetDefaultAlloc());
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->joinStr, sizeof(data->joinStr), copyData->joinStr);
+    Str::Copy(data->joinStr, sizeof(data->joinStr), copyData->joinStr);
     data->isUnixPath = copyData->isUnixPath;
     data->isDirectory = copyData->isDirectory;
     data->prepend = copyData->prepend;
@@ -840,9 +837,9 @@ bool Node_JoinStringArray::InitializeDuplicate(NodeGraph* graph, NodeHandle node
 void Node_JoinStringArray::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Node_JoinStringArray::Data* data = memAllocZeroTyped<Node_JoinStringArray::Data>();
+    Node_JoinStringArray::Data* data = Mem::AllocZeroTyped<Node_JoinStringArray::Data>();
     data->str.Free();
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_JoinStringArray::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -856,20 +853,20 @@ bool Node_JoinStringArray::Execute(NodeGraph* graph, NodeHandle nodeHandle, cons
         data->str.Reset();
 
     if (data->prepend) {
-        if (!data->isDirectory) { if (data->joinStr[0]) data->str.Write(data->joinStr, strLen(data->joinStr)); }
+        if (!data->isDirectory) { if (data->joinStr[0]) data->str.Write(data->joinStr, Str::Len(data->joinStr)); }
         else                    { data->str.Write<char>(data->isUnixPath ? '/' : '\\'); }
     }
 
     if (pinJoin.data.size) {
         if (data->isDirectory)
-            data->str.Write(strReplaceChar(pinJoin.data.str, uint32(pinJoin.data.size)+1, data->isUnixPath ? '\\' : '/', data->isUnixPath ? '/' : '\\'), pinJoin.data.size);
+            data->str.Write(Str::ReplaceChar(pinJoin.data.str, uint32(pinJoin.data.size)+1, data->isUnixPath ? '\\' : '/', data->isUnixPath ? '/' : '\\'), pinJoin.data.size);
         else 
             data->str.Write(pinJoin.data.str, pinJoin.data.size);
     }
 
 
     if (pinJoin.loop || data->append) {
-        if (!data->isDirectory) { if (data->joinStr[0]) data->str.Write(data->joinStr, strLen(data->joinStr)); }
+        if (!data->isDirectory) { if (data->joinStr[0]) data->str.Write(data->joinStr, Str::Len(data->joinStr)); }
         else                    { data->str.Write<char>(data->isUnixPath ? '/' : '\\'); }
     }
 
@@ -928,7 +925,7 @@ bool Node_JoinStringArray::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHan
     data->isUnixPath = sjson_get_bool(jparent, "IsUnixPath", data->isUnixPath);
     data->prepend = sjson_get_bool(jparent, "Prepend", false);
     data->append = sjson_get_bool(jparent, "Append", false);
-    strCopy(data->joinStr, sizeof(data->joinStr), sjson_get_string(jparent, "JoinStr", ""));
+    Str::Copy(data->joinStr, sizeof(data->joinStr), sjson_get_string(jparent, "JoinStr", ""));
 
     return true;
 }
@@ -944,11 +941,11 @@ void Node_JoinStringArray::Register()
 bool Node_JoinString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_JoinString::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_JoinString::Data>();
     node.data = data;
 
     data->str.SetGrowPolicy(Blob::GrowPolicy::Linear);
-    data->str.SetAllocator(memDefaultAlloc());
+    data->str.SetAllocator(Mem::GetDefaultAlloc());
 
     if constexpr(PLATFORM_WINDOWS)
         data->isUnixPath = false;
@@ -961,14 +958,14 @@ bool Node_JoinString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_JoinString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_JoinString::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_JoinString::Data>();
     node.data = data;
 
     data->str.SetGrowPolicy(Blob::GrowPolicy::Linear);
-    data->str.SetAllocator(memDefaultAlloc());
+    data->str.SetAllocator(Mem::GetDefaultAlloc());
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->joinStr, sizeof(data->joinStr), copyData->joinStr);
+    Str::Copy(data->joinStr, sizeof(data->joinStr), copyData->joinStr);
     data->isUnixPath = copyData->isUnixPath;
     data->isDirectory = copyData->isDirectory;
 
@@ -978,9 +975,9 @@ bool Node_JoinString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandl
 void Node_JoinString::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_JoinString::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_JoinString::Data>();
     data->str.Free();
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_JoinString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -990,11 +987,11 @@ bool Node_JoinString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arr
     data->str.Reset();
 
     if (inPins.Count() < 2) {
-        strCopy(data->errDesc, sizeof(data->errDesc), "Must have at least have two inputs");
+        Str::Copy(data->errDesc, sizeof(data->errDesc), "Must have at least have two inputs");
         return false;
     }
 
-    uint32 joinStrLen = strLen(data->joinStr);
+    uint32 joinStrLen = Str::Len(data->joinStr);
 
     auto AppendJoinStr = [data, joinStrLen]() {
         if (!data->isDirectory) {
@@ -1009,7 +1006,7 @@ bool Node_JoinString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arr
     auto AppendPinStr = [data](Pin& pin) {
         if (pin.data.size) {
             if (data->isDirectory)
-                data->str.Write(strReplaceChar(pin.data.str, uint32(pin.data.size)+1, 
+                data->str.Write(Str::ReplaceChar(pin.data.str, uint32(pin.data.size)+1, 
                                                data->isUnixPath ? '\\' : '/', data->isUnixPath ? '/' : '\\'), pin.data.size);
             else 
                 data->str.Write(pin.data.str, pin.data.size);
@@ -1082,7 +1079,7 @@ bool Node_JoinString::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, 
 
     data->isDirectory = sjson_get_bool(jparent, "IsDirectory", false);
     data->isUnixPath = sjson_get_bool(jparent, "IsUnixPath", data->isUnixPath);
-    strCopy(data->joinStr, sizeof(data->joinStr), sjson_get_string(jparent, "JoinStr", ""));
+    Str::Copy(data->joinStr, sizeof(data->joinStr), sjson_get_string(jparent, "JoinStr", ""));
 
     return true;
 }
@@ -1099,7 +1096,7 @@ void Node_JoinString::Register()
 bool Node_SplitString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_SplitString::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_SplitString::Data>();
     node.data = data;
 
     data->splitNewLines = true;
@@ -1110,7 +1107,7 @@ bool Node_SplitString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_SplitString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Node_SplitString::Data>();
+    Data* data = Mem::AllocZeroTyped<Node_SplitString::Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
@@ -1129,7 +1126,7 @@ void Node_SplitString::Release(NodeGraph* graph, NodeHandle nodeHandle)
     Node& node = ngGetNodeData(graph, nodeHandle);
     Node_SplitString::Data* data = (Node_SplitString::Data*)node.data;
 
-    memFree(data);
+    Mem::Free(data);
 }
 
 bool Node_SplitString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -1141,8 +1138,8 @@ bool Node_SplitString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Ar
     splitChars[0] = data->splitChar;
     splitChars[1] = 0;
     if (data->splitNewLines) 
-        strConcat(splitChars, sizeof(splitChars), "\r\n");
-    uint32 splitCharsLen = strLen(splitChars);
+        Str::Concat(splitChars, sizeof(splitChars), "\r\n");
+    uint32 splitCharsLen = Str::Len(splitChars);
 
     auto IsSplitChar = [splitChars, splitCharsLen](char ch) { 
         for (uint32 i = 0; i < splitCharsLen; i++) {
@@ -1170,7 +1167,7 @@ bool Node_SplitString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Ar
             uint32 len = uint32(str - startStr);
             if (len) {
                 char* split = tmpAlloc.MallocTyped<char>(len + 1);
-                strCopyCount(split, len+1, startStr, len);
+                Str::CopyCount(split, len+1, startStr, len);
 
                 data->strOffset = uint32(str + 1 - inStr);
 
@@ -1197,7 +1194,7 @@ bool Node_SplitString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Ar
         uint32 len = uint32(str - startStr);
         if (len) {
             char* split = tmpAlloc.MallocTyped<char>(len + 1);
-            strCopy(split, len+1, startStr);
+            Str::Copy(split, len+1, startStr);
 
             outPin.data.SetString(split, len);
             outPin.ready = true;
@@ -1276,15 +1273,15 @@ bool Node_SplitPath::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arra
     Pin& filename = ngGetPinData(graph, node.outPins[2]);
     Pin& fileext = ngGetPinData(graph, node.outPins[3]);
 
-    char directoryStr[kMaxPath];
-    char filenameStr[kMaxPath];
-    char fileextStr[kMaxPath];
-    char filenameExtStr[kMaxPath];
+    char directoryStr[CONFIG_MAX_PATH];
+    char filenameStr[CONFIG_MAX_PATH];
+    char fileextStr[CONFIG_MAX_PATH];
+    char filenameExtStr[CONFIG_MAX_PATH];
 
-    pathDirectory(path.data.str, directoryStr, sizeof(directoryStr));
-    pathFileNameAndExt(path.data.str, filenameExtStr, sizeof(filenameExtStr));
-    pathFileName(path.data.str, filenameStr, sizeof(filenameStr));
-    pathFileExtension(path.data.str, fileextStr, sizeof(fileextStr));
+    PathUtils::GetDirectory(path.data.str, directoryStr, sizeof(directoryStr));
+    PathUtils::GetFilenameAndExtension(path.data.str, filenameExtStr, sizeof(filenameExtStr));
+    PathUtils::GetFilename(path.data.str, filenameStr, sizeof(filenameStr));
+    PathUtils::GetFileExtension(path.data.str, fileextStr, sizeof(fileextStr));
 
     dir.data.SetString(directoryStr);           dir.ready = true;
     filenameExt.data.SetString(filenameExtStr); filenameExt.ready = true;
@@ -1312,7 +1309,7 @@ bool Node_IsFile::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<P
     Pin& outSize = ngGetPinData(graph, node.outPins[3]);
     Pin& outDate = ngGetPinData(graph, node.outPins[4]);
 
-    PathInfo info = pathStat(path.data.str);
+    PathInfo info = OS::GetPathInfo(path.data.str);
     outPath.data.SetString(path.data.str);
     outPath.ready = true;
 
@@ -1348,7 +1345,7 @@ bool Node_IsDir::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<Pi
     Pin& noPin = ngGetPinData(graph, node.outPins[1]);
     Pin& outPath = ngGetPinData(graph, node.outPins[2]);
 
-    PathInfo info = pathStat(path.data.str);
+    PathInfo info = OS::GetPathInfo(path.data.str);
     outPath.data.SetString(path.data.str);
     outPath.ready = true;
 
@@ -1369,7 +1366,7 @@ void Node_IsDir::Register()
 bool Node_CompareString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
     return true;
@@ -1378,7 +1375,7 @@ bool Node_CompareString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_CompareString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
@@ -1391,7 +1388,7 @@ bool Node_CompareString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHa
 void Node_CompareString::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_CompareString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -1406,21 +1403,21 @@ bool Node_CompareString::Execute(NodeGraph* graph, NodeHandle nodeHandle, const 
     switch (data->mode) {
     case Mode::Normal:  
         isEqual = data->ignoreCase ? 
-            strIsEqualNoCase(valueA, valueB) : 
-            strIsEqual(valueA, valueB);     
+            Str::IsEqualNoCase(valueA, valueB) : 
+            Str::IsEqual(valueA, valueB);     
         break;
     case Mode::BeginsWith: 
         isEqual = data->ignoreCase ? 
-            strIsEqualNoCaseCount(valueA, valueB, strLen(valueA)) : 
-            strIsEqualCount(valueA, valueB, strLen(valueA));
+            Str::IsEqualNoCaseCount(valueA, valueB, Str::Len(valueA)) : 
+            Str::IsEqualCount(valueA, valueB, Str::Len(valueA));
         break;
     case Mode::EndsWith:  {
-        uint32 lenA = strLen(valueA);
-        uint32 lenB = strLen(valueB);
+        uint32 lenA = Str::Len(valueA);
+        uint32 lenB = Str::Len(valueB);
         if (lenA <= lenB) {
             isEqual = data->ignoreCase ? 
-                strIsEqualNoCaseCount(valueA, valueB + lenB - lenA, lenA) : 
-                strIsEqualCount(valueA, valueB + lenB - lenA, lenA);
+                Str::IsEqualNoCaseCount(valueA, valueB + lenB - lenA, lenA) : 
+                Str::IsEqualCount(valueA, valueB + lenB - lenA, lenA);
         }
         break;
     }
@@ -1488,10 +1485,10 @@ void Node_CompareString::Register()
 bool Node_StringConstant::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     
-    strCopy(data->varName, sizeof(data->varName), node.desc.name);
+    Str::Copy(data->varName, sizeof(data->varName), node.desc.name);
 
     return true;
 }
@@ -1499,12 +1496,12 @@ bool Node_StringConstant::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_StringConstant::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->varName, sizeof(data->varName), copyData->varName);
-    strCopy(data->value, sizeof(data->value), copyData->value);
+    Str::Copy(data->varName, sizeof(data->varName), copyData->varName);
+    Str::Copy(data->value, sizeof(data->value), copyData->value);
 
     return true;
 }
@@ -1512,7 +1509,7 @@ bool Node_StringConstant::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeH
 void Node_StringConstant::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 const char* Node_StringConstant::GetTitleUI(NodeGraph* graph, NodeHandle handle)
@@ -1555,8 +1552,8 @@ bool Node_StringConstant::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHand
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->varName, sizeof(data->varName), sjson_get_string(jparent, "VarName", node.desc.name));
-    strCopy(data->value, sizeof(data->value), sjson_get_string(jparent, "Value", ""));
+    Str::Copy(data->varName, sizeof(data->varName), sjson_get_string(jparent, "VarName", node.desc.name));
+    Str::Copy(data->value, sizeof(data->value), sjson_get_string(jparent, "Value", ""));
 
     return true;
 }
@@ -1572,11 +1569,11 @@ void Node_StringConstant::Register()
 bool Node_Constants::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     
-    data->items.SetAllocator(memDefaultAlloc());
-    strCopy(data->title, sizeof(data->title), node.desc.name);
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
+    Str::Copy(data->title, sizeof(data->title), node.desc.name);
 
     return true;
 }
@@ -1584,13 +1581,13 @@ bool Node_Constants::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_Constants::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    data->items.SetAllocator(memDefaultAlloc());
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->title, sizeof(data->title), copyData->title);
+    Str::Copy(data->title, sizeof(data->title), copyData->title);
     copyData->items.CopyTo(&data->items);
 
     return true;
@@ -1599,9 +1596,9 @@ bool Node_Constants::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle
 void Node_Constants::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     data->items.Free();
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 const char* Node_Constants::GetTitleUI(NodeGraph* graph, NodeHandle handle)
@@ -1645,7 +1642,7 @@ bool Node_Constants::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         Item& item = data->items[i];
         char idStr[32];
 
-        strPrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
         ImGui::SetNextItemWidth(400);
         ImGui::InputText(idStr, item.value, sizeof(item.value), 0);
         isValueEmpty |= item.value[0] == 0;
@@ -1655,14 +1652,14 @@ bool Node_Constants::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         ImGui::SameLine();
 
         ImGui::SetNextItemWidth(150);
-        strPrintFmt(idStr, sizeof(idStr), "##pin_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "##pin_%u", i);
         int selectedPinIndex = Min(node.outPins.Count() - 1, item.outputPinIndex);
         if (ImGui::Combo(idStr, &selectedPinIndex, pinNames, node.outPins.Count())) {
             item.outputPinIndex = selectedPinIndex;
         }
 
         ImGui::SameLine();
-        strPrintFmt(idStr, sizeof(idStr), "btn_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "btn_%u", i);
         ImGui::PushID(idStr);
         if (ImGui::Button(ICON_FA_MINUS_SQUARE)) {
             data->items.Pop(i--);
@@ -1719,13 +1716,13 @@ bool Node_Constants::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, s
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
     sjson_node* jitems = sjson_find_member(jparent, "Items");
     if (jitems) {
         sjson_node* jitem = sjson_first_child(jitems);
         while (jitem) {
             Item item {};
-            strCopy(item.value, sizeof(item.value), sjson_get_string(jitem, "Value", ""));
+            Str::Copy(item.value, sizeof(item.value), sjson_get_string(jitem, "Value", ""));
             item.outputPinIndex = uint32(sjson_get_int(jitem, "OutputPinIndex", 0));
             data->items.Push(item);
 
@@ -1747,21 +1744,21 @@ void Node_Constants::Register()
 bool Node_IntConstant::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    strCopy(data->varName, sizeof(data->varName), node.desc.name);
+    Str::Copy(data->varName, sizeof(data->varName), node.desc.name);
     return true;
 }
 
 bool Node_IntConstant::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->varName, sizeof(data->varName), copyData->varName);
+    Str::Copy(data->varName, sizeof(data->varName), copyData->varName);
     data->value = copyData->value;
 
     return true;
@@ -1770,7 +1767,7 @@ bool Node_IntConstant::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHand
 void Node_IntConstant::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 const char* Node_IntConstant::GetTitleUI(NodeGraph* graph, NodeHandle handle)
@@ -1812,7 +1809,7 @@ bool Node_IntConstant::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle,
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
-    strCopy(data->varName, sizeof(data->varName), sjson_get_string(jparent, "VarName", node.desc.name));
+    Str::Copy(data->varName, sizeof(data->varName), sjson_get_string(jparent, "VarName", node.desc.name));
     data->value = sjson_get_int(jparent, "Value", 0);
     return true;
 }
@@ -1874,11 +1871,11 @@ void Node_BoolNegate::Register()
 bool Node_Selector::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    data->items.SetAllocator(memDefaultAlloc());
-    strCopy(data->title, sizeof(data->title), node.desc.name);
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
+    Str::Copy(data->title, sizeof(data->title), node.desc.name);
     
     return true;
 }
@@ -1886,13 +1883,13 @@ bool Node_Selector::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_Selector::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    data->items.SetAllocator(memDefaultAlloc());
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->title, sizeof(data->title), copyData->title);
+    Str::Copy(data->title, sizeof(data->title), copyData->title);
     copyData->items.CopyTo(&data->items);
     
     return true;
@@ -1945,7 +1942,7 @@ bool Node_Selector::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         SelectorItem& item = data->items[i];
         char idStr[32];
 
-        strPrintFmt(idStr, sizeof(idStr), "##cond_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "##cond_%u", i);
         int selectedCond = int(item.cond);
         ImGui::SetNextItemWidth(150);
         if (ImGui::Combo(idStr, &selectedCond, ConditionStr, int(Condition::_Count))) {
@@ -1953,7 +1950,7 @@ bool Node_Selector::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         }        
         ImGui::SameLine();
 
-        strPrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
         ImGui::SetNextItemWidth(200);
         ImGui::InputText(idStr, item.value.Ptr(), item.value.Capacity(), ImGuiInputTextFlags_CharsNoBlank);
         item.value.CalcLength();
@@ -1964,14 +1961,14 @@ bool Node_Selector::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         ImGui::SameLine();
 
         ImGui::SetNextItemWidth(100);
-        strPrintFmt(idStr, sizeof(idStr), "##pin_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "##pin_%u", i);
         int selectedPinIndex = Min(node.outPins.Count() - 1, item.outputPinIndex);
         if (ImGui::Combo(idStr, &selectedPinIndex, pinNames, node.outPins.Count())) {
             item.outputPinIndex = selectedPinIndex;
         }
 
         ImGui::SameLine();
-        strPrintFmt(idStr, sizeof(idStr), "btn_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "btn_%u", i);
         ImGui::PushID(idStr);
         if (ImGui::Button(ICON_FA_MINUS_SQUARE)) {
             data->items.Pop(i--);
@@ -1993,7 +1990,7 @@ bool Node_Selector::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array
     Pin& valuePin = ngGetPinData(graph, inPins[0]);
 
     if (data->items.Count() == 0) {
-        strCopy(data->errorMsg, sizeof(data->errorMsg), "There are no mapping items for this selector. You should at least add one");
+        Str::Copy(data->errorMsg, sizeof(data->errorMsg), "There are no mapping items for this selector. You should at least add one");
         return false;
     }
 
@@ -2002,7 +1999,7 @@ bool Node_Selector::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array
 
     for (SelectorItem& item : data->items) {
         if (item.outputPinIndex >= outPins.Count()) {
-            strPrintFmt(data->errorMsg, sizeof(data->errorMsg), "Cannot map selector item with value '%s' to pin #%u. Pin index is out of bounds, Possibly deleted", 
+            Str::PrintFmt(data->errorMsg, sizeof(data->errorMsg), "Cannot map selector item with value '%s' to pin #%u. Pin index is out of bounds, Possibly deleted", 
                         item.value.CStr(), item.outputPinIndex);
             return false;
         }
@@ -2010,21 +2007,21 @@ bool Node_Selector::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array
 
         switch (item.cond) {
         case Condition::Equal:
-            if (strIsEqual(valuePin.data.str, item.value.CStr())) {
+            if (Str::IsEqual(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(GetString(outPin.dynName));;
                 outPin.ready = true;
             }
             break;
 
         case Condition::EqualIgnoreCase:
-            if (strIsEqualNoCase(valuePin.data.str, item.value.CStr())) {
+            if (Str::IsEqualNoCase(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(GetString(outPin.dynName));;
                 outPin.ready = true;
             }
             break;
 
         case Condition::NotEqual:
-            if (!strIsEqual(valuePin.data.str, item.value.CStr())) {
+            if (!Str::IsEqual(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(GetString(outPin.dynName));;
                 outPin.ready = true;
             }
@@ -2065,7 +2062,7 @@ bool Node_Selector::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, sj
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
     sjson_node* jitems = sjson_find_member(jparent, "SelectorItems");
     if (jitems) {
         sjson_node* jitem = sjson_first_child(jitems);
@@ -2092,7 +2089,7 @@ void Node_Selector::Register()
 bool Node_MathCounter::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
     return true;
@@ -2101,7 +2098,7 @@ bool Node_MathCounter::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_MathCounter::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     const Data* _srcData = (const Data*)srcData;
 
@@ -2114,7 +2111,7 @@ bool Node_MathCounter::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHand
 void Node_MathCounter::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 bool Node_MathCounter::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<PinHandle>& inPins, const Array<PinHandle>& outPins)
@@ -2176,7 +2173,7 @@ void Node_MathCounter::Register()
 bool Node_EmbedGraph::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     data->graphMutex.Initialize();
     node.data = data;
     return true;
@@ -2194,7 +2191,7 @@ void Node_EmbedGraph::Release(NodeGraph* graph, NodeHandle nodeHandle)
     Data* data = (Data*)node.data;
     ngDestroy(data->graph);
     data->graphMutex.Release();
-    memFree(data);
+    Mem::Free(data);
 }
 
 const char* Node_EmbedGraph::GetTitleUI(NodeGraph* graph, NodeHandle nodeHandle)
@@ -2243,7 +2240,7 @@ bool Node_EmbedGraph::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arr
             Pin& inPin = ngGetPinData(graph, inPins[i]);
             uint32 propIndex = propHandles.FindIf([inPin, data](const PropertyHandle& handle)->bool { return ngGetPropertyData(data->graph, handle).pinName == inPin.dynName; });
             if (propIndex == INVALID_INDEX) {
-                logWarning("Property '%s' not found in graph '%s'", GetString(inPin.dynName), wksGetWorkspaceFilePath(GetWorkspace(), ngGetFileHandle(data->graph)).CStr());
+                LOG_WARNING("Property '%s' not found in graph '%s'", GetString(inPin.dynName), wksGetWorkspaceFilePath(GetWorkspace(), ngGetFileHandle(data->graph)).CStr());
             }
             else {
                 Property& prop = ngGetPropertyData(data->graph, propHandles[propIndex]);
@@ -2271,7 +2268,7 @@ bool Node_EmbedGraph::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arr
         outPin.data.CopyFrom(ngGetOutputResult(data->graph));
     }
     else {
-        strCopy(data->errorMsg, sizeof(data->errorMsg), ngGetLastError(data->graph));
+        Str::Copy(data->errorMsg, sizeof(data->errorMsg), ngGetLastError(data->graph));
         taskEvent.Error(data->errorMsg);
     }
     
@@ -2302,7 +2299,7 @@ bool Node_EmbedGraph::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, 
     Data* data = (Data*)node.data;
     char errMsg[512];
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
     Path filepath = sjson_get_string(jparent, "Filepath", "");
     if (filepath.IsEmpty()) {
         SetLoadError(graph, nodeHandle, WksFileHandle(), "No file to load");
@@ -2311,7 +2308,7 @@ bool Node_EmbedGraph::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, 
 
     WksFileHandle fileHandle = wksFindFile(GetWorkspace(), filepath.CStr());
     if (!fileHandle.IsValid()) {
-        strPrintFmt(errMsg, sizeof(errMsg), "File does not exist in workspace anymore: %s", filepath.CStr());
+        Str::PrintFmt(errMsg, sizeof(errMsg), "File does not exist in workspace anymore: %s", filepath.CStr());
         SetLoadError(graph, nodeHandle, WksFileHandle(), errMsg);
         return false;
     }
@@ -2337,7 +2334,7 @@ void Node_EmbedGraph::Set(NodeGraph* graph, NodeHandle nodeHandle, NodeGraph* em
     data->loadError = false;
 
     if (data->title[0] == 0)
-        strCopy(data->title, sizeof(data->title), wksGetFileInfo(GetWorkspace(), fileHandle).name);
+        Str::Copy(data->title, sizeof(data->title), wksGetFileInfo(GetWorkspace(), fileHandle).name);
 }
 
 void Node_EmbedGraph::SetLoadError(NodeGraph* graph, NodeHandle nodeHandle, WksFileHandle fileHandle, const char* errMsg)
@@ -2348,10 +2345,10 @@ void Node_EmbedGraph::SetLoadError(NodeGraph* graph, NodeHandle nodeHandle, WksF
     ASSERT(!data->graph);
     data->loadError = true;
     data->fileHandle = fileHandle;
-    strCopy(data->errorMsg, sizeof(data->errorMsg), errMsg);
+    Str::Copy(data->errorMsg, sizeof(data->errorMsg), errMsg);
 
     if (data->title[0] == 0)
-        strCopy(data->title, sizeof(data->title), wksGetFileInfo(GetWorkspace(), fileHandle).name);
+        Str::Copy(data->title, sizeof(data->title), wksGetFileInfo(GetWorkspace(), fileHandle).name);
 }
 
 WksFileHandle Node_EmbedGraph::GetGraphFileHandle(NodeGraph* graph, NodeHandle nodeHandle) const
@@ -2399,7 +2396,7 @@ void Node_EmbedGraph::Register()
 bool Node_FormatString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     return true;
 }
@@ -2407,7 +2404,7 @@ bool Node_FormatString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_FormatString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     Data* _srcData = (Data*)srcData;
 
@@ -2419,7 +2416,7 @@ void Node_FormatString::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
-    memFree(data);
+    Mem::Free(data);
 }
 
 bool Node_FormatString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
@@ -2440,21 +2437,21 @@ bool Node_FormatString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
             if (ImGui::Button(pinName)) {
                 char tmp[sizeof(data->text)];
                 char pasteText[32];
-                strPrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
+                Str::PrintFmt(pasteText, sizeof(pasteText), "${%s}", pinName);
                 if (data->textSelectionStart != data->textSelectionEnd) {
                     if (data->textSelectionEnd < data->textSelectionStart)
                         Swap<int>(data->textSelectionStart, data->textSelectionEnd);
-                    strCopyCount(tmp, sizeof(tmp), data->text, data->textSelectionStart);
-                    strConcat(tmp, sizeof(tmp), pasteText);
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->text + data->textSelectionEnd);
+                    Str::CopyCount(tmp, sizeof(tmp), data->text, data->textSelectionStart);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->text + data->textSelectionEnd);
                 }
                 else {
-                    strCopyCount(tmp, sizeof(tmp), data->text, data->textCursor);
-                    strConcat(tmp, sizeof(tmp), pasteText);
+                    Str::CopyCount(tmp, sizeof(tmp), data->text, data->textCursor);
+                    Str::Concat(tmp, sizeof(tmp), pasteText);
                     int textCursor = data->textCursor;
-                    data->textCursor = strLen(tmp);
-                    strConcat(tmp, sizeof(tmp), data->text + textCursor);
+                    data->textCursor = Str::Len(tmp);
+                    Str::Concat(tmp, sizeof(tmp), data->text + textCursor);
                 }
                 memcpy(data->text, tmp, sizeof(data->text));
                 refocus = true;
@@ -2512,7 +2509,7 @@ bool Node_FormatString::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->text, sizeof(data->text), sjson_get_string(jparent, "Text", ""));
+    Str::Copy(data->text, sizeof(data->text), sjson_get_string(jparent, "Text", ""));
     return true;
 }
 
@@ -2583,7 +2580,7 @@ void Node_GraphMetaData::Register()
 bool Node_ListDir::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     return true;
 }
@@ -2597,8 +2594,8 @@ bool Node_ListDir::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, 
     Data* data = (Data*)node.data;
     Data* srcData = (Data*)_srcData;
 
-    strCopy(data->extensions, sizeof(data->extensions), srcData->extensions);
-    strCopy(data->excludeExtensions, sizeof(data->excludeExtensions), srcData->excludeExtensions);
+    Str::Copy(data->extensions, sizeof(data->extensions), srcData->extensions);
+    Str::Copy(data->excludeExtensions, sizeof(data->excludeExtensions), srcData->excludeExtensions);
     data->recursive = srcData->recursive;
     data->ignoreDirectories = srcData->ignoreDirectories;
     data->onlyDirectories = srcData->onlyDirectories;
@@ -2629,11 +2626,11 @@ bool Node_ListDir::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         ImGui::Separator();
         ImGui::TextUnformatted("Extensions are separated by space. Example: \".txt .cpp .h\"");
         if (ImGui::InputText("Extensions", data->extensions, sizeof(data->extensions))) {
-            strTrim(data->extensions, sizeof(data->extensions), data->extensions);
+            Str::Trim(data->extensions, sizeof(data->extensions), data->extensions);
         }
 
         if (ImGui::InputText("Exclude Extensions", data->excludeExtensions, sizeof(data->excludeExtensions))) {
-            strTrim(data->excludeExtensions, sizeof(data->excludeExtensions), data->excludeExtensions);
+            Str::Trim(data->excludeExtensions, sizeof(data->excludeExtensions), data->excludeExtensions);
         }
     }
 
@@ -2651,14 +2648,14 @@ static void ListDir_GetListing(const Path& dirPath, Node_ListDir::Data* data, Te
     {
         if (extensions.Count()) {
             for (const char* ext : extensions) {
-                if (strEndsWith(name, ext))
+                if (Str::EndsWith(name, ext))
                     return true;
             }
             return false;
         }
 
         for (const char* ext : excludeExtensions) {
-            if (strEndsWith(name, ext))
+            if (Str::EndsWith(name, ext))
                 return false;
         }
 
@@ -2675,7 +2672,7 @@ static void ListDir_GetListing(const Path& dirPath, Node_ListDir::Data* data, Te
     dirent* ent;
     while ((ent = readdir(d)) != nullptr) {
         if (ent->d_type == DT_DIR) {
-            if (strIsEqual(ent->d_name, ".") || strIsEqual(ent->d_name, ".."))
+            if (Str::IsEqual(ent->d_name, ".") || Str::IsEqual(ent->d_name, ".."))
                 continue;
 
             Path subdirPath = Path::Join(dirPath, ent->d_name);
@@ -2706,24 +2703,24 @@ bool Node_ListDir::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<
     MemTempAllocator tmpAlloc;
     char extensionsStr[sizeof(data->extensions)];
     char excludeExtensionsStr[sizeof(data->excludeExtensions)];
-    strCopy(extensionsStr, sizeof(extensionsStr), data->extensions);
-    strCopy(excludeExtensionsStr, sizeof(excludeExtensionsStr), data->excludeExtensions);
-    strReplaceChar(extensionsStr, sizeof(extensionsStr), '*', ' ');
-    strReplaceChar(excludeExtensionsStr, sizeof(excludeExtensionsStr), '*', ' ');
+    Str::Copy(extensionsStr, sizeof(extensionsStr), data->extensions);
+    Str::Copy(excludeExtensionsStr, sizeof(excludeExtensionsStr), data->excludeExtensions);
+    Str::ReplaceChar(extensionsStr, sizeof(extensionsStr), '*', ' ');
+    Str::ReplaceChar(excludeExtensionsStr, sizeof(excludeExtensionsStr), '*', ' ');
 
-    Span<char*> extensions = strSplit(extensionsStr, ' ', &tmpAlloc);
-    Span<char*> excludeExtensions = strSplit(excludeExtensionsStr, ' ', &tmpAlloc);
+    Str::SplitResult extensions = Str::Split(extensionsStr, ' ', &tmpAlloc);
+    Str::SplitResult excludeExtensions = Str::Split(excludeExtensionsStr, ' ', &tmpAlloc);
 
     Pin& dirPin = ngGetPinData(graph, inPins[0]);
 
-    if (dirPin.data.str[0] == 0 || !pathIsDir(dirPin.data.str)) {
-        strPrintFmt(data->errorMsg, sizeof(data->errorMsg), "Invalid directory: %s", dirPin.data.str);
+    if (dirPin.data.str[0] == 0 || !OS::IsPathDir(dirPin.data.str)) {
+        Str::PrintFmt(data->errorMsg, sizeof(data->errorMsg), "Invalid directory: %s", dirPin.data.str);
         return false;
     }
 
     DIR* d = opendir(dirPin.data.str);
     if (!d) {
-        strPrintFmt(data->errorMsg, sizeof(data->errorMsg), "Cannot open directory: %s", dirPin.data.str);
+        Str::PrintFmt(data->errorMsg, sizeof(data->errorMsg), "Cannot open directory: %s", dirPin.data.str);
         return false;
     }
 
@@ -2735,7 +2732,7 @@ bool Node_ListDir::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Array<
         output->mBlob.SetSize(output->mBlob.Size() - 1);    // Remove the last null-terminator
     startOffset = output->mBlob.Size();
 
-    ListDir_GetListing(Path(dirPin.data.str), data, output, extensions, excludeExtensions, d);
+    ListDir_GetListing(Path(dirPin.data.str), data, output, extensions.splits, excludeExtensions.splits, d);
     closedir(d);
 
     output->WriteData<char>('\0');
@@ -2771,8 +2768,8 @@ bool Node_ListDir::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, sjs
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->extensions, sizeof(data->extensions), sjson_get_string(jparent, "Extensions", ""));
-    strCopy(data->excludeExtensions, sizeof(data->excludeExtensions), sjson_get_string(jparent, "ExcludeExtensions", ""));
+    Str::Copy(data->extensions, sizeof(data->extensions), sjson_get_string(jparent, "Extensions", ""));
+    Str::Copy(data->excludeExtensions, sizeof(data->excludeExtensions), sjson_get_string(jparent, "ExcludeExtensions", ""));
     data->recursive = sjson_get_bool(jparent, "Recursive", false);
     data->ignoreDirectories = sjson_get_bool(jparent, "IgnoreDirectories", false);
     data->onlyDirectories = sjson_get_bool(jparent, "OnlyDirectories", false);
@@ -2799,11 +2796,11 @@ void Node_ListDir::Register()
 bool Node_TranslateString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    data->items.SetAllocator(memDefaultAlloc());
-    strCopy(data->title, sizeof(data->title), node.desc.name);
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
+    Str::Copy(data->title, sizeof(data->title), node.desc.name);
     
     return true;
 }
@@ -2811,13 +2808,13 @@ bool Node_TranslateString::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_TranslateString::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
 
-    data->items.SetAllocator(memDefaultAlloc());
+    data->items.SetAllocator(Mem::GetDefaultAlloc());
 
     Data* copyData = (Data*)srcData;
-    strCopy(data->title, sizeof(data->title), copyData->title);
+    Str::Copy(data->title, sizeof(data->title), copyData->title);
     copyData->items.CopyTo(&data->items);
     
     return true;
@@ -2855,7 +2852,7 @@ bool Node_TranslateString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         Item& item = data->items[i];
         char idStr[32];
 
-        strPrintFmt(idStr, sizeof(idStr), "##cond_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "##cond_%u", i);
         int selectedCond = int(item.cond);
         ImGui::SetNextItemWidth(150);
         if (ImGui::Combo(idStr, &selectedCond, ConditionStr, int(Condition::_Count))) {
@@ -2863,7 +2860,7 @@ bool Node_TranslateString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         }        
         ImGui::SameLine();
 
-        strPrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "Value###value_%u", i);
         ImGui::SetNextItemWidth(200);
         if (ImGui::InputText(idStr, item.value.Ptr(), sizeof(item.value))) 
             item.value.Trim();
@@ -2876,12 +2873,12 @@ bool Node_TranslateString::ShowEditUI(NodeGraph* graph, NodeHandle nodeHandle)
         ImGui::SameLine();
 
         ImGui::SetNextItemWidth(200);
-        strPrintFmt(idStr, sizeof(idStr), "##output_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "##output_%u", i);
         if (ImGui::InputText(idStr, item.output.Ptr(), item.output.Capacity())) 
             item.output.Trim();
 
         ImGui::SameLine();
-        strPrintFmt(idStr, sizeof(idStr), "btn_%u", i);
+        Str::PrintFmt(idStr, sizeof(idStr), "btn_%u", i);
         ImGui::PushID(idStr);
         if (ImGui::Button(ICON_FA_MINUS_SQUARE)) {
             data->items.Pop(i--);
@@ -2904,28 +2901,28 @@ bool Node_TranslateString::Execute(NodeGraph* graph, NodeHandle nodeHandle, cons
     Pin& outPin = ngGetPinData(graph, outPins[0]);
 
     if (data->items.Count() == 0) {
-        strCopy(data->errorMsg, sizeof(data->errorMsg), "There are no mapping items for this node. You should at least add one");
+        Str::Copy(data->errorMsg, sizeof(data->errorMsg), "There are no mapping items for this node. You should at least add one");
         return false;
     }
 
     for (Item& item : data->items) {
         switch (item.cond) {
         case Condition::Equal:
-            if (strIsEqual(valuePin.data.str, item.value.CStr())) {
+            if (Str::IsEqual(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(item.output.CStr());;
                 outPin.ready = true;
             }
             break;
 
         case Condition::EqualIgnoreCase:
-            if (strIsEqualNoCase(valuePin.data.str, item.value.CStr())) {
+            if (Str::IsEqualNoCase(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(item.output.CStr());;
                 outPin.ready = true;
             }
             break;
 
         case Condition::NotEqual:
-            if (!strIsEqual(valuePin.data.str, item.value.CStr())) {
+            if (!Str::IsEqual(valuePin.data.str, item.value.CStr())) {
                 outPin.data.SetString(item.output.CStr());;
                 outPin.ready = true;
             }
@@ -2974,7 +2971,7 @@ bool Node_TranslateString::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHan
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
 
-    strCopy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
+    Str::Copy(data->title, sizeof(data->title), sjson_get_string(jparent, "Title", node.desc.name));
     sjson_node* jitems = sjson_find_member(jparent, "Items");
     if (jitems) {
         sjson_node* jitem = sjson_first_child(jitems);
@@ -3005,7 +3002,7 @@ bool Node_SetEnvVar::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arra
     Pin& namePin = ngGetPinData(graph, inPins[0]);
     Pin& valuePin = ngGetPinData(graph, inPins[1]);
 
-    bool r = sysSetEnvVar(namePin.data.str, valuePin.data.str);
+    bool r = OS::SetEnvVar(namePin.data.str, valuePin.data.str);
     if (r)
         ngGetPinData(graph, outPins[0]).ready = true;
 
@@ -3023,7 +3020,7 @@ void Node_SetEnvVar::Register()
 bool Node_GetEnvVar::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     return true;
 }
@@ -3031,7 +3028,7 @@ bool Node_GetEnvVar::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_GetEnvVar::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     memcpy(data, srcData, sizeof(Data));
     node.data = data;
     return true;
@@ -3040,7 +3037,7 @@ bool Node_GetEnvVar::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle
 void Node_GetEnvVar::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 const char* Node_GetEnvVar::GetTitleUI(NodeGraph* graph, NodeHandle nodeHandle)
@@ -3048,7 +3045,7 @@ const char* Node_GetEnvVar::GetTitleUI(NodeGraph* graph, NodeHandle nodeHandle)
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
     
-    strPrintFmt(data->title, sizeof(data->title), "EnvVar: %s", data->name[0] ? data->name : "[None]");
+    Str::PrintFmt(data->title, sizeof(data->title), "EnvVar: %s", data->name[0] ? data->name : "[None]");
     return data->title;
 }
 
@@ -3059,8 +3056,8 @@ bool Node_GetEnvVar::Execute(NodeGraph* graph, NodeHandle nodeHandle, const Arra
     Data* data = (Data*)node.data;
     
     MemTempAllocator tmpAlloc;
-    char* value = tmpAlloc.MallocTyped<char>(32*kKB);
-    if (sysGetEnvVar(data->name, value, 32*kKB)) {
+    char* value = tmpAlloc.MallocTyped<char>(32*SIZE_KB);
+    if (OS::GetEnvVar(data->name, value, 32*SIZE_KB)) {
         valuePin.data.SetString(value);
         valuePin.ready = true;
 
@@ -3090,7 +3087,7 @@ bool Node_GetEnvVar::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHandle, s
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
-    strCopy(data->name, sizeof(data->name), sjson_get_string(jparent, "VarName", ""));
+    Str::Copy(data->name, sizeof(data->name), sjson_get_string(jparent, "VarName", ""));
     return true;
 }
 
@@ -3099,7 +3096,7 @@ const char* Node_GetEnvVar::GetLastError(NodeGraph* graph, NodeHandle nodeHandle
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
     static char errorMsg[128];
-    strPrintFmt(errorMsg, sizeof(errorMsg), "EnvironmentVariable '%s' not found", data->name);
+    Str::PrintFmt(errorMsg, sizeof(errorMsg), "EnvironmentVariable '%s' not found", data->name);
     return errorMsg;
 }
 
@@ -3114,7 +3111,7 @@ void Node_GetEnvVar::Register()
 bool Node_GetSettingsVar::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     node.data = data;
     return true;
 }
@@ -3122,7 +3119,7 @@ bool Node_GetSettingsVar::Initialize(NodeGraph* graph, NodeHandle nodeHandle)
 bool Node_GetSettingsVar::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeHandle, const void* srcData)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    Data* data = memAllocZeroTyped<Data>();
+    Data* data = Mem::AllocZeroTyped<Data>();
     memcpy(data, srcData, sizeof(Data));
     node.data = data;
     return true;
@@ -3131,7 +3128,7 @@ bool Node_GetSettingsVar::InitializeDuplicate(NodeGraph* graph, NodeHandle nodeH
 void Node_GetSettingsVar::Release(NodeGraph* graph, NodeHandle nodeHandle)
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
-    memFree(node.data);
+    Mem::Free(node.data);
 }
 
 const char* Node_GetSettingsVar::GetTitleUI(NodeGraph* graph, NodeHandle nodeHandle)
@@ -3139,7 +3136,7 @@ const char* Node_GetSettingsVar::GetTitleUI(NodeGraph* graph, NodeHandle nodeHan
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
     
-    strPrintFmt(data->title, sizeof(data->title), "SettingsVar: %s", data->name[0] ? data->name : "[None]");
+    Str::PrintFmt(data->title, sizeof(data->title), "SettingsVar: %s", data->name[0] ? data->name : "[None]");
     return data->title;
 }
 
@@ -3150,10 +3147,10 @@ bool Node_GetSettingsVar::Execute(NodeGraph* graph, NodeHandle nodeHandle, const
     Data* data = (Data*)node.data;
     
     MemTempAllocator tmpAlloc;
-    Span<char*> path = strSplit(data->name, '/', &tmpAlloc);
-    if (path.Count() > 1) {
-        const char* category = path[0];
-        const char* name = path[1];
+    Str::SplitResult path = Str::Split(data->name, '/', &tmpAlloc);
+    if (path.splits.Count() > 1) {
+        const char* category = path.splits[0];
+        const char* name = path.splits[1];
         const char* value = GetWorkspaceSettingByCategoryName(category, name);
         if (!value)
             return false;
@@ -3186,7 +3183,7 @@ bool Node_GetSettingsVar::LoadDataFromJson(NodeGraph* graph, NodeHandle nodeHand
 {
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
-    strCopy(data->name, sizeof(data->name), sjson_get_string(jparent, "SettingName", ""));
+    Str::Copy(data->name, sizeof(data->name), sjson_get_string(jparent, "SettingName", ""));
     return true;
 }
 
@@ -3195,7 +3192,7 @@ const char* Node_GetSettingsVar::GetLastError(NodeGraph* graph, NodeHandle nodeH
     Node& node = ngGetNodeData(graph, nodeHandle);
     Data* data = (Data*)node.data;
     static char errorMsg[128];
-    strPrintFmt(errorMsg, sizeof(errorMsg), "SettingsVariable '%s' not found", data->name);
+    Str::PrintFmt(errorMsg, sizeof(errorMsg), "SettingsVariable '%s' not found", data->name);
     return errorMsg;
 }
 

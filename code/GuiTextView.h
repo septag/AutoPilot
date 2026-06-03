@@ -1,9 +1,5 @@
 #pragma once
 
-#include "Core/Allocators.h"
-#include "Core/Blobs.h"
-#include "Core/Arrays.h"
-
 struct TextSegment
 {
     uint32 begin;
@@ -15,12 +11,12 @@ struct TextContent
     MemBumpAllocatorVM mAlloc;   // Allocator for the blob. we need to keep all the text persistent and do not invalidate pointers
     Blob mBlob;
     Array<TextSegment> mLines; // holds references to blob data
-    AtomicLock mLock;
+    SpinLockMutex mLock;
     const char* mLastLinePtr = nullptr;
     TextContent* mRedirectContent = nullptr;
     uint32 mResetFlag = 0;
 
-    bool Initialize(size_t reserveSize = kMB*256, size_t pageSize = kKB*512);
+    bool Initialize(size_t reserveSize = SIZE_MB*256, size_t pageSize = SIZE_KB*512);
     void Release();
     void WriteData(const void* src, size_t size);
     template <typename _T> void WriteData(const _T& v) { WriteData(&v, sizeof(v)); }

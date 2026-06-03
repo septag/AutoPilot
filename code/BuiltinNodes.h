@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Blobs.h"
 #include "NodeGraph.h"
 
 struct ImGuiInputTextCallbackData;
@@ -187,7 +186,7 @@ struct Node_CreateProcess final : NodeImpl
         // runtime
         int  cmdTextInputWidth;
         char errorStr[2048];
-        SysProcess* runningProc;
+        OSProcess* runningProc;
         int textSelectionStart;
         int textSelectionEnd;
         int textCursor;
@@ -264,7 +263,7 @@ struct Node_ShellExecute final : NodeImpl
 
         // runtime
         char errorStr[1024];
-        SysProcess* runningProc;
+        OSProcess* runningProc;
         int selectedOp;
         int textSelectionStart;
         int textSelectionEnd;
@@ -854,7 +853,7 @@ struct Node_StringConstant final : NodeImpl
     struct Data
     {
         char varName[64];
-        char value[kMaxPath];
+        char value[CONFIG_MAX_PATH];
     };
 
     bool Initialize(NodeGraph* graph, NodeHandle nodeHandle) override;

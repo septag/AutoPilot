@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/Pools.h"
-
 using StringId = uint64;
 
 #ifndef __OBJC__

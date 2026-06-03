@@ -1,6 +1,5 @@
+#include "Core.h"
 #include "Workspace.h"
-
-#include "Core/Log.h"
 
 #if PLATFORM_WINDOWS
     #include "External/dirent/dirent.h"
@@ -45,8 +44,8 @@ static void wksGather(WksWorkspace* wks, const char* dirname, WksFolderHandle cu
     auto SortFunc = [](const struct dirent **a, const struct dirent **b)->int {
         char extA[32];
         char extB[32];
-        pathFileExtension((*a)->d_name, extA, sizeof(extA));
-        pathFileExtension((*b)->d_name, extB, sizeof(extB));
+        PathUtils::GetFileExtension((*a)->d_name, extA, sizeof(extA));
+        PathUtils::GetFileExtension((*b)->d_name, extB, sizeof(extB));
         return strcmp(extA + 1, extB + 1);
     };
 
@@ -54,7 +53,7 @@ static void wksGather(WksWorkspace* wks, const char* dirname, WksFolderHandle cu
     int numEntries = scandir(dirname, &entries, [](const dirent* d)->int { 
         if (d->d_type == DT_DIR && d->d_name[0] != '.')
             return 1;
-        if (strEndsWith(d->d_name, kWksGraphExt) || strEndsWith(d->d_name, kWksNodeExt))
+        if (Str::EndsWith(d->d_name, kWksGraphExt) || Str::EndsWith(d->d_name, kWksNodeExt))
             return 1;
         return 0;
     }, SortFunc);
@@ -77,9 +76,9 @@ static void wksGather(WksWorkspace* wks, const char* dirname, WksFolderHandle cu
             }
             else {
                 WksFileType fileType = WksFileType::None;
-                if (strEndsWith(d->d_name, kWksGraphExt))
+                if (Str::EndsWith(d->d_name, kWksGraphExt))
                     fileType = WksFileType::Graph;
-                else if (strEndsWith(d->d_name, kWksNodeExt))
+                else if (Str::EndsWith(d->d_name, kWksNodeExt))
                     fileType = WksFileType::Node;
                 WksFileHandle fileHandle = wks->filePool.Add(WksFile { 
                     .type = fileType,
@@ -140,14 +139,14 @@ WksFileHandle wksFindFile(WksWorkspace* wks, const char* path)
 }
 
 
-WksWorkspace* wksCreate(const char* rootDir, WksEvents* events, Allocator* alloc)
+WksWorkspace* wksCreate(const char* rootDir, WksEvents* events, MemAllocator* alloc)
 {
-    if (!pathIsDir(rootDir)) {
-        logError("RootDir for workspace is invalid: %s", rootDir);
+    if (!OS::IsPathDir(rootDir)) {
+        LOG_ERROR("RootDir for workspace is invalid: %s", rootDir);
         return nullptr;
     }
 
-    WksWorkspace* wks = memAllocZeroTyped<WksWorkspace>(1, alloc); 
+    WksWorkspace* wks = Mem::AllocZeroTyped<WksWorkspace>(1, alloc); 
     wks->rootDir = Path(rootDir).GetAbsolute();
     wks->filePool.SetAllocator(alloc);
     wks->folderPool.SetAllocator(alloc);
@@ -256,13 +255,13 @@ bool wksRenameFile(WksWorkspace* wks, WksFileHandle fileHandle, const char* newN
     // 
     Path newFilename(newName);
     switch (file.type) {
-    case WksFileType::Graph:    if (!strEndsWith(newName, kWksGraphExt)) newFilename.Append(kWksGraphExt);   break;
-    case WksFileType::Node:     if (!strEndsWith(newName, kWksNodeExt)) newFilename.Append(kWksNodeExt); break;
+    case WksFileType::Graph:    if (!Str::EndsWith(newName, kWksGraphExt)) newFilename.Append(kWksGraphExt);   break;
+    case WksFileType::Node:     if (!Str::EndsWith(newName, kWksNodeExt)) newFilename.Append(kWksNodeExt); break;
     default:    break;
     }
     Path newFilepath = wksGetFullPath(wks, file.parentHandle, newFilename.CStr());
 
-    bool r = pathMove(curFilepath.CStr(), newFilepath.CStr());
+    bool r = OS::MovePath(curFilepath.CStr(), newFilepath.CStr());
     if (r) {
         file.name = newFilename.CStr();
 
@@ -275,8 +274,8 @@ bool wksRenameFile(WksWorkspace* wks, WksFileHandle fileHandle, const char* newN
         filename = curFilepath.GetFileName();
         Path curFilepathNoExt = Path::Join(dir, filename);
 
-        pathMove(Path(curFilepathNoExt).Append(kWksGraphLayoutExt).CStr(), Path(newFilepathNoExt).Append(kWksGraphLayoutExt).CStr());
-        pathMove(Path(curFilepathNoExt).Append(kWksGraphUserLayoutExt).CStr(), Path(newFilepathNoExt).Append(kWksGraphUserLayoutExt).CStr());
+        OS::MovePath(Path(curFilepathNoExt).Append(kWksGraphLayoutExt).CStr(), Path(newFilepathNoExt).Append(kWksGraphLayoutExt).CStr());
+        OS::MovePath(Path(curFilepathNoExt).Append(kWksGraphUserLayoutExt).CStr(), Path(newFilepathNoExt).Append(kWksGraphUserLayoutExt).CStr());
     }
     return r;
 }
@@ -300,7 +299,7 @@ bool wksCreateGraph(WksWorkspace* wks, WksFolderHandle folderHandle, const char*
     if (wks->events) {
         if (!wks->events->OnCreateGraph(wks, fileHandle)) {
             wks->filePool.Remove(fileHandle);
-            logError("Creating graph failed: %s", graphPath.CStr());
+            LOG_ERROR("Creating graph failed: %s", graphPath.CStr());
             return false;
         }
     }
@@ -313,7 +312,7 @@ void wksOpenGraph(WksWorkspace* wks, WksFileHandle fileHandle)
 {
     if (wks->events) {
         if (!wks->events->OnOpenGraph(wks, fileHandle)) {
-            logError("Opening graph failed: %s", wksGetFullFilePath(wks, fileHandle).CStr());
+            LOG_ERROR("Opening graph failed: %s", wksGetFullFilePath(wks, fileHandle).CStr());
         }
     }
 }

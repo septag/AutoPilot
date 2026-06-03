@@ -1,7 +1,7 @@
+#include "Core.h"
 #include "BuiltinProps.h"
 
 #include "External/sjson/sjson.h"
-#include "Core/Blobs.h"
 
 #include "Main.h"
 #include "NodeGraph.h"
@@ -89,7 +89,7 @@ struct NodeGraphStringProp final : PropertyImpl
     {
         Property& prop = ngGetPropertyData(graph, propHandle);
 
-        NodeGraphStringProp::Data* data = memAllocZeroTyped<NodeGraphStringProp::Data>();
+        NodeGraphStringProp::Data* data = Mem::AllocZeroTyped<NodeGraphStringProp::Data>();
         prop.data = data;
     
         return true;
@@ -100,7 +100,7 @@ struct NodeGraphStringProp final : PropertyImpl
         Property& prop = ngGetPropertyData(graph, propHandle);
 
         NodeGraphStringProp::Data* data = (NodeGraphStringProp::Data*)prop.data;
-        memFree(data);
+        Mem::Free(data);
     }
 
     void ShowUI(NodeGraph* graph, PropertyHandle propHandle, float maxWidth) override
@@ -110,7 +110,7 @@ struct NodeGraphStringProp final : PropertyImpl
         NodeGraphStringProp::Data* data = (NodeGraphStringProp::Data*)prop.data;
         ImGui::SetNextItemWidth(maxWidth);
         if (ImGui::InputText(GetPropName(prop), data->str, sizeof(data->str))) {
-            strTrim(data->str, sizeof(data->str), data->str);
+            Str::Trim(data->str, sizeof(data->str), data->str);
             pin.data.SetString(data->str);
         }
     }
@@ -120,7 +120,7 @@ struct NodeGraphStringProp final : PropertyImpl
         Property& prop = ngGetPropertyData(graph, propHandle);
         NodeGraphStringProp::Data* data = (NodeGraphStringProp::Data*)prop.data;
         if (ImGui::InputText("Default", data->strEdit, sizeof(data->strEdit))) {
-            strTrim(data->strEdit, sizeof(data->strEdit), data->strEdit);
+            Str::Trim(data->strEdit, sizeof(data->strEdit), data->strEdit);
             initialDataInOut.SetString(data->strEdit);
         }
 
@@ -133,7 +133,7 @@ struct NodeGraphStringProp final : PropertyImpl
         NodeGraphStringProp::Data* data = (NodeGraphStringProp::Data*)prop.data;
         Pin& pin = ngGetPinData(graph, prop.pin);
         ASSERT(pin.data.type == PinDataType::String);
-        strCopy(data->str, sizeof(data->str), pin.data.str);
+        Str::Copy(data->str, sizeof(data->str), pin.data.str);
     }
 
     void SaveDataToJson(NodeGraph* graph, PropertyHandle propHandle, sjson_context* jctx, sjson_node* jparent) override {}
@@ -146,7 +146,7 @@ struct NodeGraphEnumProp final : PropertyImpl
     struct EnumItem
     {
         String<64> name;
-        String<kMaxPath> alias;
+        String<CONFIG_MAX_PATH> alias;
     };
 
     struct Data
@@ -158,8 +158,8 @@ struct NodeGraphEnumProp final : PropertyImpl
     bool Initialize(NodeGraph* graph, PropertyHandle propHandle) override
     {
         Property& prop = ngGetPropertyData(graph, propHandle);
-        Data* data = memAllocZeroTyped<Data>();
-        data->items.SetAllocator(memDefaultAlloc());
+        Data* data = Mem::AllocZeroTyped<Data>();
+        data->items.SetAllocator(Mem::GetDefaultAlloc());
         prop.data = data;
         return true;
     }
@@ -167,9 +167,9 @@ struct NodeGraphEnumProp final : PropertyImpl
     void Release(NodeGraph* graph, PropertyHandle propHandle) override
     {
         Property& prop = ngGetPropertyData(graph, propHandle);
-        Data* data = memAllocZeroTyped<Data>();
+        Data* data = Mem::AllocZeroTyped<Data>();
         data->items.Free();
-        memFree(prop.data);
+        Mem::Free(prop.data);
     }
 
     void ShowUI(NodeGraph* graph, PropertyHandle propHandle, float maxWidth) override
@@ -210,19 +210,19 @@ struct NodeGraphEnumProp final : PropertyImpl
         for (uint32 i = 0; i < data->items.Count(); i++) {
             EnumItem& item = data->items[i];
             char idStr[32];
-            strPrintFmt(idStr, sizeof(idStr), "Name####name_%u", i);
+            Str::PrintFmt(idStr, sizeof(idStr), "Name####name_%u", i);
             ImGui::InputText(idStr, item.name.Ptr(), sizeof(item.name), ImGuiInputTextFlags_CharsNoBlank);
             item.name.CalcLength();
             ImGui::SameLine();
             
             isNameEmpty |= item.name.IsEmpty();
 
-            strPrintFmt(idStr, sizeof(idStr), "Alias###alias_%u", i);
+            Str::PrintFmt(idStr, sizeof(idStr), "Alias###alias_%u", i);
             ImGui::InputText(idStr, item.alias.Ptr(), sizeof(item.alias), ImGuiInputTextFlags_CharsNoBlank);
             item.alias.CalcLength();
 
             ImGui::SameLine();
-            strPrintFmt(idStr, sizeof(idStr), "btn_%u", i);
+            Str::PrintFmt(idStr, sizeof(idStr), "btn_%u", i);
             ImGui::PushID(idStr);
             if (ImGui::Button(ICON_FA_MINUS_SQUARE)) {
                 data->items.Pop(i);
@@ -325,9 +325,9 @@ struct NodeGraphMultiSelectProp final : PropertyImpl
     bool Initialize(NodeGraph* graph, PropertyHandle propHandle) override
     {
         Property& prop = ngGetPropertyData(graph, propHandle);
-        Data* data = memAllocZeroTyped<Data>();
-        data->items.SetAllocator(memDefaultAlloc());
-        data->selectedItems.SetAllocator(memDefaultAlloc());
+        Data* data = Mem::AllocZeroTyped<Data>();
+        data->items.SetAllocator(Mem::GetDefaultAlloc());
+        data->selectedItems.SetAllocator(Mem::GetDefaultAlloc());
         prop.data = data;
         return true;
     }
@@ -335,10 +335,10 @@ struct NodeGraphMultiSelectProp final : PropertyImpl
     void Release(NodeGraph* graph, PropertyHandle propHandle) override
     {
         Property& prop = ngGetPropertyData(graph, propHandle);
-        Data* data = memAllocZeroTyped<Data>();
+        Data* data = Mem::AllocZeroTyped<Data>();
         data->items.Free();
         data->selectedItems.Free();
-        memFree(prop.data);
+        Mem::Free(prop.data);
     }
 
     void ShowUI(NodeGraph* graph, PropertyHandle propHandle, float maxWidth) override
@@ -403,14 +403,14 @@ struct NodeGraphMultiSelectProp final : PropertyImpl
         for (uint32 i = 0; i < data->items.Count(); i++) {
             Item& item = data->items[i];
             char idStr[32];
-            strPrintFmt(idStr, sizeof(idStr), "Name####name_%u", i);
+            Str::PrintFmt(idStr, sizeof(idStr), "Name####name_%u", i);
             ImGui::InputText(idStr, item.name.Ptr(), sizeof(item.name), ImGuiInputTextFlags_CharsNoBlank);
             item.name.CalcLength();
             ImGui::SameLine();
             
             isNameEmpty |= item.name.IsEmpty();
 
-            strPrintFmt(idStr, sizeof(idStr), "btn_%u", i);
+            Str::PrintFmt(idStr, sizeof(idStr), "btn_%u", i);
             ImGui::PushID(idStr);
             if (ImGui::Button(ICON_FA_MINUS_SQUARE)) {
                 data->items.Pop(i);
@@ -441,18 +441,18 @@ struct NodeGraphMultiSelectProp final : PropertyImpl
 
         // split string by ';' and look up each item 
         const char* value = pin.data.str;
-        const char* split = strFindChar(value, ';');
+        const char* split = Str::FindChar(value, ';');
         while (split) {
             if (value < split) {
                 char name[64];
-                strCopyCount(name, sizeof(name), value, (uint32)uintptr(split - value));
+                Str::CopyCount(name, sizeof(name), value, (uint32)uintptr(split - value));
                 uint32 index = FindInItems(name);
                 if (index != INVALID_INDEX)
                     data->selectedItems.Push(index);
             }
 
             value = split + 1;
-            split = strFindChar(split + 1, ';');
+            split = Str::FindChar(split + 1, ';');
         }
 
         uint32 index = FindInItems(value);

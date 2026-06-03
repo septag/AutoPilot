@@ -1,10 +1,7 @@
+#include "Core.h"
 #include "GuiTasksView.h"
 
 #include "ImGui/ImGuiAll.h"
-
-#include "Core/System.h"
-#include "Core/Log.h"
-#include "Core/MathTypes.h"
 
 #include "Main.h"
 #include "Workspace.h"
@@ -88,7 +85,7 @@ void GuiTaskView::Render(const char* windowId)
         return;
 
     if (mData->dataChanged && mData->mutex.TryEnter()) {
-        mData->itemsCopy = memReallocTyped<GuiTaskViewData::Item*>(mData->itemsCopy, mData->items.Count());
+        mData->itemsCopy = Mem::ReallocTyped<GuiTaskViewData::Item*>(mData->itemsCopy, mData->items.Count());
         memcpy(mData->itemsCopy, mData->items.Ptr(), mData->items.Count()*sizeof(GuiTaskViewData::Item*));
         mData->numItems = mData->items.Count();
         mData->dataChanged = false;
@@ -115,7 +112,7 @@ void GuiTaskView::Render(const char* windowId)
 
                 if (!mData->hoveredItemIsChild) {
                     char overviewText[256];
-                    strPrintFmt(overviewText, sizeof(overviewText), "Overview \"%s\"", tskGetName(mData->hoveredItem->graphHandle));
+                    Str::PrintFmt(overviewText, sizeof(overviewText), "Overview \"%s\"", tskGetName(mData->hoveredItem->graphHandle));
                     if (ImGui::MenuItem(overviewText)) {
                         mData->showOverview = true;
                     }
@@ -123,7 +120,7 @@ void GuiTaskView::Render(const char* windowId)
                 ImGui::Separator();
                 if (ImGui::MenuItem("Copy text")) {
                     SetClipboardString(mData->hoveredItem->text);
-                    logInfo("Item copied to clipboard");
+                    LOG_INFO("Item copied to clipboard");
                 }
 
                 ImGui::EndPopup();
@@ -137,8 +134,8 @@ void GuiTaskView::Render(const char* windowId)
             ImGuiTreeNodeFlags flags = item->firstChild ? 0 : ImGuiTreeNodeFlags_Leaf;
 
             if (item->state == GuiTaskViewData::ItemState::Running) {
-                strPrintFmt(spinnerId, sizeof(spinnerId), "spinner_%u", i);
-                imguiSpinnerAng(spinnerId, 5.5f, 4.0f, ImColor(0, 200, 0), ImColor(255, 255, 255, 0), 6.0f, 0.75f*kPI2, 0);
+                Str::PrintFmt(spinnerId, sizeof(spinnerId), "spinner_%u", i);
+                imguiSpinnerAng(spinnerId, 5.5f, 4.0f, ImColor(0, 200, 0), ImColor(255, 255, 255, 0), 6.0f, 0.75f*M_PI2, 0);
             }
             else if (item->state == GuiTaskViewData::ItemState::Finished) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.8f, 0, 1.0f));
@@ -164,7 +161,7 @@ void GuiTaskView::Render(const char* windowId)
                         mData->selectedItem = item;
                         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             SetClipboardString(item->text);
-                            logInfo("Item copied to clipboard");
+                            LOG_INFO("Item copied to clipboard");
                         }
                     }
 
@@ -202,8 +199,8 @@ void GuiTaskView::Reset()
 
 bool GuiTaskView::Initialize()
 {
-    mData = NEW(memDefaultAlloc(), GuiTaskViewData);
-    mData->alloc.Initialize(512*kMB, 64*kKB);
+    mData = NEW(Mem::GetDefaultAlloc(), GuiTaskViewData);
+    mData->alloc.Initialize(512*SIZE_MB, 64*SIZE_KB);
     mData->mutex.Initialize();
     mData->selectedItem = nullptr;
 
@@ -216,7 +213,7 @@ void GuiTaskView::Release()
         mData->mutex.Release();
         mData->alloc.Release();
         mData->items.Free();
-        memFree(mData);
+        Mem::Free(mData);
         mData = nullptr;
     }
 }
@@ -224,12 +221,12 @@ void GuiTaskView::Release()
 void GuiTaskView::OnBeginEvent(TskGraphHandle graphHandle, TskEventHandle eventHandle, const char* name, time_t startTm)
 {
     const char* graphName = tskGetName(graphHandle);
-    uint32 textLen = strLen(name) + strLen(graphName) + 2 /* ": " */ + 64 /* duration */;
+    uint32 textLen = Str::Len(name) + Str::Len(graphName) + 2 /* ": " */ + 64 /* duration */;
     MemSingleShotMalloc<GuiTaskViewData::Item> mallocator;
 
     // No need to Free, because we will free the VM allocator itself
-    GuiTaskViewData::Item* item = mallocator.AddMemberField<char>(offsetof(GuiTaskViewData::Item, text), textLen + 1).Calloc(&mData->alloc);
-    strPrintFmt(item->text, textLen + 1, "%s: %s", graphName, name);
+    GuiTaskViewData::Item* item = mallocator.AddMemberArray<char>(offsetof(GuiTaskViewData::Item, text), textLen + 1).Calloc(&mData->alloc);
+    Str::PrintFmt(item->text, textLen + 1, "%s: %s", graphName, name);
     item->textLen = textLen + 1;
     item->state = GuiTaskViewData::ItemState::Running;
     item->graphHandle = graphHandle;
@@ -257,8 +254,8 @@ void GuiTaskView::OnEndEvent(TskGraphHandle graphHandle, TskEventHandle eventHan
 
     char durstr[64];
     MakeTimeFormat(duration, durstr, sizeof(durstr));
-    strConcat(parentItem->text, parentItem->textLen, " - ");
-    strConcat(parentItem->text, parentItem->textLen, durstr);
+    Str::Concat(parentItem->text, parentItem->textLen, " - ");
+    Str::Concat(parentItem->text, parentItem->textLen, durstr);
 }
 
 void GuiTaskView::OnNewEvent(TskGraphHandle graphHandle, TskEventHandle eventHandle, TskEventType::Enum type, const char* text)
@@ -282,11 +279,11 @@ void GuiTaskView::OnNewEvent(TskGraphHandle graphHandle, TskEventHandle eventHan
     }
     
     if (text[0]) {
-        uint32 textLen = strLen(text);
+        uint32 textLen = Str::Len(text);
         MemSingleShotMalloc<GuiTaskViewData::Item> mallocator;
 
         // No need for free, allocating from VM allocator
-        GuiTaskViewData::Item* item = mallocator.AddMemberField<char>(offsetof(GuiTaskViewData::Item, text), textLen + 1).Calloc(&mData->alloc);
+        GuiTaskViewData::Item* item = mallocator.AddMemberArray<char>(offsetof(GuiTaskViewData::Item, text), textLen + 1).Calloc(&mData->alloc);
         memcpy(item->text, text, textLen);
         item->text[textLen] = '\0';
 

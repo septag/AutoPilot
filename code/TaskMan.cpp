@@ -1,10 +1,10 @@
+#include "Core.h"
 #include "TaskMan.h"
 
 #include "Main.h"
 #include "NodeGraph.h"
 #include "Workspace.h"
 
-#include "Core/Log.h"
 
 #include "External/sjson/sjson.h"
 
@@ -54,7 +54,7 @@ static TskContext gTsk;
 TskEventType::Enum TskEventType::FromString(const char* estr)
 {     
     for (uint32 i = 0; i < _Count; i++) {
-        if (strIsEqual(estr, mStrs[i]))
+        if (Str::IsEqual(estr, mStrs[i]))
         return (Enum)i;
     }
     ASSERT(0);
@@ -132,7 +132,7 @@ TskGraphHandle tskLoadGraphTask(WksFileHandle graphFileHandle)
     ASSERT_ALWAYS(jctx, "Out of memory?");
     sjson_node* jroot = sjson_decode(jctx, jsonText);
     if (!jroot) {
-        logWarning("Parsing json failed: %s", filepath.CStr());
+        LOG_WARNING("Parsing json failed: %s", filepath.CStr());
         return handle;
     }
 
@@ -224,11 +224,11 @@ bool tskSaveGraphTask(TskGraphHandle handle)
     char* jsonText = sjson_stringify(jctx, jroot, "\t");
     File f;
     if (!f.Open(filepath.CStr(), FileOpenFlags::Write)) {
-        logError("Cannot open file for writing: %s", filepath.CStr());
+        LOG_ERROR("Cannot open file for writing: %s", filepath.CStr());
         return false;
     }
 
-    f.Write(jsonText, strLen(jsonText));
+    f.Write(jsonText, Str::Len(jsonText));
     f.Close();
 
     sjson_free_string(jctx, jsonText);
@@ -254,7 +254,7 @@ TskEventHandle tskBeginEvent(TskGraphHandle graphHandle, const char* name, TskGr
     
     TskEventHandle eventHandle = graphTask.events.Add(TskEvent {
         .title = name,
-        .startTm = timerGetTicks(),
+        .startTm = Timer::GetTicks(),
         .tm = time(nullptr),
         .parentGraphHandle = redirectGraph,
         .parentEventHandle = redirectEvents
@@ -284,7 +284,7 @@ void tskEndEvent(TskGraphHandle graphHandle, TskEventHandle eventHandle)
     TskGraph& graphTask = gTsk.graphs.Data(graphHandle);
         
     TskEvent& event = graphTask.events.Data(eventHandle);
-    event.duration = (float)timerToSec(timerDiff(timerGetTicks(), event.startTm));
+    event.duration = (float)Timer::ToSec(Timer::Diff(Timer::GetTicks(), event.startTm));
 
     if (graphTask.callbacks)
         graphTask.callbacks->OnEndEvent(graphHandle, eventHandle, event.duration);
@@ -332,7 +332,7 @@ void TskEventScope::SuccessFmt(const char* fmt, ...)
     MemTempAllocator tmpAlloc;
     va_list args;
     va_start(args, fmt);
-    char* text = strPrintFmtAllocArgs(&tmpAlloc, fmt, args);
+    char* text = Str::PrintFmtAllocArgs(&tmpAlloc, fmt, args);
     va_end(args);
 
     tskPushEvent(mGraphHandle, mHandle, TskEventType::Success, text);
@@ -344,7 +344,7 @@ void TskEventScope::ErrorFmt(const char* fmt, ...)
     MemTempAllocator tmpAlloc;
     va_list args;
     va_start(args, fmt);
-    char* text = strPrintFmtAllocArgs(&tmpAlloc, fmt, args);
+    char* text = Str::PrintFmtAllocArgs(&tmpAlloc, fmt, args);
     va_end(args);
 
     tskPushEvent(mGraphHandle, mHandle, TskEventType::Error, text);
@@ -356,7 +356,7 @@ void TskEventScope::InfoFmt(const char* fmt, ...)
     MemTempAllocator tmpAlloc;
     va_list args;
     va_start(args, fmt);
-    char* text = strPrintFmtAllocArgs(&tmpAlloc, fmt, args);
+    char* text = Str::PrintFmtAllocArgs(&tmpAlloc, fmt, args);
     va_end(args);
 
     tskPushEvent(mGraphHandle, mHandle, TskEventType::Info, text);
@@ -377,7 +377,7 @@ void tskBeginGraphExecute(TskGraphHandle graphHandle, TskGraphHandle redirectGra
 
     ASSERT_MSG(!graphTask.inExecute, "Graph is still in the middle of execution, finish it first");
     graphTask.inExecute = true;
-    graphTask.startTmHires = timerGetTicks();
+    graphTask.startTmHires = Timer::GetTicks();
     graphTask.startTm = time(nullptr);
 
     ASSERT(!graphTask.mainEvent.IsValid());
@@ -392,7 +392,7 @@ void tskEndGraphExecute(TskGraphHandle graphHandle, const char* metaData, bool w
     // TODO: for now, we skip saving the history if task fails. Might want to change this behavior later
     if (!withError) {
         graphTask.history.Push(TskSummary {
-            .duration = (float)timerToSec(timerDiff(timerGetTicks(), graphTask.startTmHires)),
+            .duration = (float)Timer::ToSec(Timer::Diff(Timer::GetTicks(), graphTask.startTmHires)),
             .startTm = graphTask.startTm,
             .metaData = metaData ? metaData : ""
         });    
@@ -405,13 +405,13 @@ void tskEndGraphExecute(TskGraphHandle graphHandle, const char* metaData, bool w
     graphTask.inExecute = false;
 }
 
-Span<TskSummary> tskGetHistory(TskGraphHandle graphHandle, Allocator* alloc)
+Span<TskSummary> tskGetHistory(TskGraphHandle graphHandle, MemAllocator* alloc)
 {
     MutexScope mtx(gTsk.graphsMutex);
     TskGraph& graphTask = gTsk.graphs.Data(graphHandle);
 
     if (graphTask.history.Count()) {
-        TskSummary* summary = memAllocCopy<TskSummary>(graphTask.history.Ptr(), graphTask.history.Count(), alloc);
+        TskSummary* summary = Mem::AllocCopy<TskSummary>(graphTask.history.Ptr(), graphTask.history.Count(), alloc);
         return Span<TskSummary>(summary, graphTask.history.Count());
     }
     else {

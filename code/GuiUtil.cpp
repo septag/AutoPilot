@@ -1,16 +1,10 @@
+#include "Core.h"
 #include "GuiUtil.h"
 
 #include <string.h>
 
-#include "Core/MathScalar.h"
-#include "Core/Log.h"
-#include "Core/Atomic.h"
-#include "ImGui/ImGuiAll.h"
-
 #include "Main.h"
-
-#include "Core/IncludeWin.h"
-#include "Core/BlitSort.h"
+#include "ImGui/ImGuiAll.h"
 
 #if PLATFORM_WINDOWS
     #include "External/dirent/dirent.h"
@@ -129,9 +123,9 @@ struct GuiMessageBox
 struct GuiStatusBar
 {
     String<1024> text;
-    Color color;
+    Color4u color;
     float showTime;
-    AtomicLock lock;
+    SpinLockMutex lock;
 };
 
 struct GuiFileDialog
@@ -244,7 +238,7 @@ static void ShowMessageBox()
             ImGui::SameLine();
         }
 
-        uint32 len = strLen(box.msg);
+        uint32 len = Str::Len(box.msg);
         float width = 0;
         float height = 0;
         if (len >= 256) {
@@ -329,10 +323,10 @@ static void ShowFileDialog()
         ImGui::TextColored(ImVec4(0.5, 0.5, 0.5, 1.0), "Path: ");
         ImGui::SameLine();
         {
-            char cwdPath[kMaxPath];
-            strCopy(cwdPath, sizeof(cwdPath), dlg.cwd.CStr());
+            char cwdPath[CONFIG_MAX_PATH];
+            Str::Copy(cwdPath, sizeof(cwdPath), dlg.cwd.CStr());
             if (ImGui::InputText("##Path", cwdPath, sizeof(cwdPath), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                PathInfo info = pathStat(cwdPath);
+                PathInfo info = OS::GetPathInfo(cwdPath);
                 if (info.type == PathType::Directory)
                     dlg.cwd = Path(cwdPath).GetAbsolute();
                 else if (info.type == PathType::File)
@@ -369,13 +363,13 @@ static void ShowFileDialog()
                 MemTempAllocator tmpAlloc;
                 Array<Pair<uint32, uint32>> dists(&tmpAlloc);
                 for (uint32 i = 0; i < CountOf(items); i++) {
-                    uint32 dist = levenshtein_distance(search, strLen(search), sizeof(search), items[i], strLen(items[i]));
+                    uint32 dist = levenshtein_distance(search, Str::Len(search), sizeof(search), items[i], Str::Len(items[i]));
                     dists.Push(Pair<uint32, uint32>(dist, i));
                 }
                 BlitSort<Pair<uint32, uint32>>(dists.Ptr(), dists.Count(), [](const Pair<uint32, uint32>& a, const Pair<uint32, uint32>& b)->int { return int(a.first) - int(b.first); });
-                logDebug("Matching: ");
+                LOG_DEBUG("Matching: ");
                 for (uint32 i = 0; i < dists.Count(); i++) {
-                    logDebug("\t%s (%u)", items[dists[i].second], dists[i].first);
+                    LOG_DEBUG("\t%s (%u)", items[dists[i].second], dists[i].first);
                 }
             }
         }
@@ -391,7 +385,7 @@ static void ShowFileDialog()
             }
 
             for (int i = 0; i < numEntries; i++) {
-                if (strIsEqual(entries[i]->d_name, "."))
+                if (Str::IsEqual(entries[i]->d_name, "."))
                     continue;
                 
                 if (ImGui::Selectable(entries[i]->d_name, dlg.selected == i, ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -445,7 +439,7 @@ void guiMessageBox(GuiMessageBoxButtons buttons, GuiMessageBoxFlags flags, GuiMe
 
     va_list args;
     va_start(args, fmt);
-    strPrintFmtArgs(box.msg, sizeof(box.msg), fmt, args);
+    Str::PrintFmtArgs(box.msg, sizeof(box.msg), fmt, args);
     va_end(args);
 
     box.buttons = buttons;
@@ -472,12 +466,12 @@ void guiUpdate()
         const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
         const float lineSize = ImGui::GetFrameHeightWithSpacing();
 
-        AtomicLockScope lock(status.lock);
+        SpinLockMutexScope lock(status.lock);
         ImDrawList* fgDrawList = ImGui::GetForegroundDrawList();
         float y = displaySize.y - lineSize;
         status.showTime += 1.0f / ImGui::GetIO().Framerate;
-        float alpha = mathLinearStep(status.showTime, 0, 5.0f);
-        alpha = 1.0f - mathGain(alpha, 0.05f);
+        float alpha = M::LinearStep(status.showTime, 0, 5.0f);
+        alpha = 1.0f - M::Gain(alpha, 0.05f);
         status.color.a = uint8(alpha * 255.0f);
 
         ImGuiViewport* viewport = ImGui::GetWindowViewport();
@@ -492,20 +486,20 @@ void guiStatus(LogLevel level, const char* fmt, ...)
 {
     GuiStatusBar& status = gGui.statusBar;
 
-    AtomicLockScope lock(status.lock);
+    SpinLockMutexScope lock(status.lock);
 
     va_list args;
     va_start(args, fmt);
-    strPrintFmtArgs(status.text.Ptr(), sizeof(status.text), fmt, args);
+    Str::PrintFmtArgs(status.text.Ptr(), sizeof(status.text), fmt, args);
     va_end(args);
 
     switch (level) {
-    case LogLevel::Info:	status.color = kColorWhite; break;
-    case LogLevel::Debug:	status.color = Color(0, 200, 200); break;
-    case LogLevel::Verbose:	status.color = Color(128, 128, 128); break;
-    case LogLevel::Warning:	status.color = kColorYellow; break;
-    case LogLevel::Error:	status.color = kColorRed; break;
-    default:			    status.color = kColorWhite; break;
+    case LogLevel::Info:	status.color = COLOR4U_WHITE; break;
+    case LogLevel::Debug:	status.color = Color4u(0, 200, 200); break;
+    case LogLevel::Verbose:	status.color = Color4u(128, 128, 128); break;
+    case LogLevel::Warning:	status.color = COLOR4U_YELLOW; break;
+    case LogLevel::Error:	status.color = COLOR4U_RED; break;
+    default:			    status.color = COLOR4U_WHITE; break;
     }
 
     status.showTime = 0;
@@ -516,7 +510,7 @@ void guiFileDialog(const char* name, const char* cwd, GuiFileDialogFlags flags, 
     ASSERT_MSG((flags & GuiFileDialogFlags::BrowseDirectories) == GuiFileDialogFlags::BrowseDirectories, "");
     GuiFileDialog& dlg = gGui.fileDialog;
 
-    if (cwd == nullptr || cwd[0] == 0 || !pathIsDir(cwd)) {
+    if (cwd == nullptr || cwd[0] == 0 || !OS::IsPathDir(cwd)) {
         if (!gGui.fileDialogHistory.lastCwd.IsEmpty() && gGui.fileDialogHistory.lastCwd.IsDir()) 
             cwd = gGui.fileDialogHistory.lastCwd.CStr();
         else

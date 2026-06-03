@@ -1,3 +1,4 @@
+#include "Core.h"
 #include "Main.h"
 
 #include "ImGui/imgui.h"
@@ -6,22 +7,12 @@
 #include "ImGui/IconsFontAwesome4.h"
 #include "ImGui/ImGuiAll.h"
 
-#include "Core/Base.h"
-#include "Core/Jobs.h"
-#include "Core/Allocators.h"
-#include "Core/System.h"
-#include "Core/Log.h"
-#include "Core/Atomic.h"
-#include "Core/MathScalar.h"
-#include "Core/StringUtil.h"
-
 #include "Main.h"
 #include "GuiTextView.h"
 
 #include <stdio.h>
 
 #define COM_NO_WINDOWS_H
-#include "Core/IncludeWin.h"
 #include <d3d11.h>
 #undef COM_NO_WINDOWS_H
 
@@ -34,15 +25,23 @@ struct GraphicsContext
     ID3D11ShaderResourceView* fontTextureView;
 };
 
+struct WindowTimer
+{
+	TimerCallback callback;
+	void* userData;
+	uint32 id;
+};
+
 struct MainWindowContext
 {
     HWND hwnd;
+    Array<WindowTimer> timers;
     uint32 resizeWidth;
     uint32 resizeHeight;
     uint32 swapInterval;
-    bool minimized;
-    bool idle;
-    bool appFocused;
+	bool forceUpdateFrame;
+    bool isFocused;
+    bool disableIdleWait;
     bool quit;
 };
 
@@ -73,7 +72,6 @@ static bool CreateDeviceD3D(HWND hWnd)
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
     UINT createDeviceFlags = 0;
-    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
     D3D_FEATURE_LEVEL featureLevel;
     const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
     HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &gGfx.swapchain, &gGfx.device, &featureLevel, &gGfx.deviceContext);
@@ -102,30 +100,20 @@ static void CleanupDeviceD3D()
     if (gGfx.device) { gGfx.device->Release(); gGfx.device = nullptr; }
 }
 
-static void UpdateFocusMode()
-{
-    if (gWindow.appFocused) {
-        gWindow.swapInterval = 1;
-    }
-    else {
-        gWindow.swapInterval = (gWindow.idle || gWindow.minimized) ? 3 : 2;
-    }
-}
-
 static void SetupEnvVars(const char* vcVarsPath)
 {
     MemTempAllocator tmpAlloc;
     Array<char*> envVars(&tmpAlloc);
 
     {
-        SysProcess proc;
+        OSProcess proc;
 
         String<1024> cmd;
         cmd = vcVarsPath;
         cmd.Append(" && ");
         cmd.Append("set");
 
-        if (proc.Run(cmd.CStr(), SysProcessFlags::CaptureOutput|SysProcessFlags::InheritHandles|SysProcessFlags::DontCreateConsole)) {
+        if (proc.Run(cmd.CStr(), OSProcessFlags::CaptureOutput|OSProcessFlags::InheritHandles|OSProcessFlags::DontCreateConsole)) {
             Blob outputBlob(&tmpAlloc);
             outputBlob.SetGrowPolicy(Blob::GrowPolicy::Linear);
             WaitForProcessAndReadOutputText(proc, &outputBlob, 0);
@@ -138,12 +126,12 @@ static void SetupEnvVars(const char* vcVarsPath)
                     if (line != envstr) {
                         uint32 len = PtrToInt<uint32>((void*)(envstr - line));
                         char* var = tmpAlloc.MallocTyped<char>(len + 1);
-                        strCopyCount(var, len + 1, line, len);
+                        Str::CopyCount(var, len + 1, line, len);
 
                         if (var[len - 1] == '\r')
                             var[len - 1] = '\0';
 
-                        if (var[0] && strFindChar(var, '='))
+                        if (var[0] && Str::FindChar(var, '='))
                             envVars.Push(var);
                     }
 
@@ -171,14 +159,14 @@ static void SetupEnvVars(const char* vcVarsPath)
                 if (line != envstr) {
                     uint32 len = (uint32)uintptr_t(envstr - line);
                     char* var = tmpAlloc.MallocTyped<char>(len + 1);
-                    strCopyCount(var, len + 1, line, len);
+                    Str::CopyCount(var, len + 1, line, len);
 
                     // Sometimes we have weird vars like "=C:=Dir" or "=ExitCode=XXX", so ignore them
                     if (var[0] != '=') {
                         uint32 index = envVars.FindIf([var](char*& item) {
-                            const char* equal = strFindChar(item, '=');
+                            const char* equal = Str::FindChar(item, '=');
                             if (equal)
-                                return strIsEqualNoCaseCount(item, var, PtrToInt<uint32>((void*)(equal - item)));
+                                return Str::IsEqualNoCaseCount(item, var, PtrToInt<uint32>((void*)(equal - item)));
                             else
                                 return false;
                         });
@@ -209,13 +197,13 @@ static void SetupEnvVars(const char* vcVarsPath)
         blob.SetGrowPolicy(Blob::GrowPolicy::Linear);
         
         for (char* var : envVars) {
-            blob.Write(var, strLen(var));
+            blob.Write(var, Str::Len(var));
             blob.Write<char>('\0');
         }
         blob.Write<char>('\0');
 
         SetEnvironmentStringsA((LPCH)blob.Data());
-        logInfo("Environment variables set from: %s", vcVarsPath);
+        LOG_INFO("Environment variables set from: %s", vcVarsPath);
     }
 }
 
@@ -246,12 +234,6 @@ static void BeginDraw(ImVec4 clearColor)
     gGfx.deviceContext->ClearRenderTargetView(gGfx.mainRenderTargetView, clearColorWithAlpha);
 }
 
-static void PresentGraphics(uint32 swapInterval)
-{
-    ASSERT(gGfx.swapchain);
-    gGfx.swapchain->Present(swapInterval, 0); // Present with vsync
-}
-
 // Main code
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -262,7 +244,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"AutoPilot", nullptr };
     ::RegisterClassExW(&wc);
 
-    Settings& settings = GetSettings();
+    AppSettings& settings = GetSettings();
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"AutoPilot", WS_OVERLAPPEDWINDOW, 
                                 settings.layout.windowX, settings.layout.windowY, 
                                 Max<uint16>(settings.layout.windowWidth, 500), Max<uint16>(settings.layout.windowHeight, 500), 
@@ -282,7 +264,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     if (!imguiInitialize()) {
         CleanupDeviceD3D();
-        logError("ImGui initialization failed");
+        LOG_ERROR("ImGui initialization failed");
         return -1;
     }
     imguiLoadFonts(ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd));
@@ -293,7 +275,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     ImGuiIO& io = ImGui::GetIO();
 
     if (!GetSettings().build.vcVarsCmdPath.IsEmpty()) {
-        jobsDispatchAuto(JobsType::LongTask, [](uint32, void* user) { 
+        Jobs::DispatchAndForget(JobsType::LongTask, [](uint32, void* user) { 
             SetupEnvVars((const char*)user); 
         }, (void*)GetSettings().build.vcVarsCmdPath.CStr(), 1, JobsPriority::High);
     }
@@ -309,6 +291,14 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         // Poll and handle messages (inputs, window resize, etc.)
         // See the WndProc() function below for our to dispatch events to the Win32 backend.
         MSG msg;
+
+		// Block the program and go into idle mode if we are getting no window messages
+        if (!gWindow.disableIdleWait && !gWindow.forceUpdateFrame && GetMessage(&msg, nullptr, 0U, 0U)) {
+            ::TranslateMessage(&msg);
+            ::DispatchMessage(&msg);
+        }
+		gWindow.forceUpdateFrame = false;
+
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
         {
             ::TranslateMessage(&msg);
@@ -319,6 +309,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
             done = true;
         if (done)
             break;
+
+        if (gWindow.quit)
+            continue;
 
         // Handle window resize (we don't resize directly in the WM_SIZE handler)
         if (gWindow.resizeWidth != 0 && gWindow.resizeHeight != 0)
@@ -353,14 +346,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
             ImGui::RenderPlatformWindowsDefault();
         }
 
-        PresentGraphics(gWindow.swapInterval);
-        memTempReset(1.0f/io.Framerate, false);
+        gGfx.swapchain->Present(gWindow.isFocused ? 0 : 2, 0); // Present with vsync
+        MemTempAllocator::Reset();
     }
 
     CleanupDeviceD3D();
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
 
+    gWindow.timers.Free();
     imguiRelease();
     Release();
 
@@ -387,15 +381,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_SIZE:
-        if (wParam != SIZE_MINIMIZED)
-        {
+        if (wParam != SIZE_MINIMIZED) {
             gWindow.resizeWidth = (UINT)LOWORD(lParam); // Queue resize
             gWindow.resizeHeight = (UINT)HIWORD(lParam);
-            gWindow.minimized = false;
         }
-        else
-        {
-            gWindow.minimized = true;
+        else {
+            gWindow.isFocused = false;
         }
         return 0;
     case WM_SYSCOMMAND:
@@ -407,8 +398,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_ACTIVATEAPP:
-        gWindow.appFocused = wParam ? true : false;
-        UpdateFocusMode();
+        gWindow.isFocused = wParam ? true : false;
         break;
 
     case WM_MOVE: {
@@ -439,7 +429,18 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             gWindow.quit = true;
         }
         break;
+
+    case WM_TIMER:
+        for (WindowTimer& t : gWindow.timers) {
+            if (t.id == uint32(wParam)) {
+                t.callback(t.userData);
+                break;
+            }
+        }
+        break;
     }
+
+
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
@@ -473,7 +474,7 @@ bool SetClipboardString(const char* text)
 {
     ASSERT(text);
 
-    uint32 textLen = strLen(text);
+    uint32 textLen = Str::Len(text);
     wchar_t* wcharBuff = 0;
     const size_t wcharBuffSize = (textLen + 1) * sizeof(wchar_t);
     HANDLE object = GlobalAlloc(GMEM_MOVEABLE, wcharBuffSize);
@@ -484,7 +485,7 @@ bool SetClipboardString(const char* text)
     if (!wcharBuff)
         goto error;
 
-    if (!strUt8ToWide(text, wcharBuff, wcharBuffSize))
+    if (!Str::Utf8ToWide(text, wcharBuff, wcharBuffSize))
         goto error;
 
     GlobalUnlock(wcharBuff);
@@ -525,9 +526,44 @@ bool GetClipboardString(char* textOut, uint32 textSize)
         return false;
     }
     
-    strWideToUtf8(wcharBuff, textOut, textSize);
+    Str::WideToUtf8(wcharBuff, textOut, textSize);
     GlobalUnlock(object);
     CloseClipboard();
     
     return true;
+}
+
+uint32 AddWindowTimer(TimerCallback timerCb, uint32 intervalMs, void* userData)
+{
+	ASSERT(timerCb);
+	ASSERT(intervalMs);
+
+	[[maybe_unused]] uint32 index = gWindow.timers.FindIf([timerCb](const WindowTimer& a) { return a.callback == timerCb; });
+	ASSERT(index == -1);
+
+	static uint32 idCounter = 0;
+	uint32 id = IndexToId(idCounter++);
+	WindowTimer t = {
+		.callback = timerCb,
+		.userData = userData,
+		.id = id
+	};
+	gWindow.timers.Push(t);
+
+	SetTimer(gWindow.hwnd, id, intervalMs, nullptr);
+	return id;
+}
+
+void RemoveWindowTimer(uint32 timerId)
+{
+	uint32 index = gWindow.timers.FindIf([timerId](const WindowTimer& a) { return a.id == timerId; });
+	if (index != -1) {
+		gWindow.timers.RemoveAndSwap(index);
+		KillTimer(gWindow.hwnd, timerId);
+	}
+}
+
+void ToggleIdleWait(bool wait)
+{
+    gWindow.disableIdleWait = !wait;
 }

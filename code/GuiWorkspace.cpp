@@ -1,6 +1,6 @@
-#include "GuiWorkspace.h"
+#include "Core.h"
 
-#include "Core/Log.h"
+#include "GuiWorkspace.h"
 
 #include "ImGui/ImGuiAll.h"
 
@@ -20,7 +20,7 @@ bool guiShowFolderItem(GuiWorkspace& uiWks, WksFolderHandle curHandle, bool inde
                 uiWks.mCreateFileFolder = WksFolderHandle();
             }
             else {
-                logError("Cannot create file '%s'. Invalid name or File already exists", uiWks.mCurFilename);
+                LOG_ERROR("Cannot create file '%s'. Invalid name or File already exists", uiWks.mCurFilename);
             }
         }
         if (ImGui::IsKeyPressed(ImGuiKey_Escape)) 
@@ -55,7 +55,7 @@ bool guiShowFolderItem(GuiWorkspace& uiWks, WksFolderHandle curHandle, bool inde
                     uiWks.mRenameMode = false;
                 }
                 else {
-                    logError("Cannot rename to '%s'. Invalid name or File already exists", uiWks.mCurFilename);
+                    LOG_ERROR("Cannot rename to '%s'. Invalid name or File already exists", uiWks.mCurFilename);
                 }
             }
             if (ImGui::IsKeyPressed(ImGuiKey_Escape)) 
@@ -68,7 +68,7 @@ bool guiShowFolderItem(GuiWorkspace& uiWks, WksFolderHandle curHandle, bool inde
                 icon = ICON_FA_CUBES;
             else if (fileInfo.type == WksFileType::Node)
                 icon = ICON_FA_CUBE;
-            strPrintFmt(label, sizeof(label), "%s %s", icon, fileInfo.name);
+            Str::PrintFmt(label, sizeof(label), "%s %s", icon, fileInfo.name);
             if (ImGui::Selectable(label, uiWks.mSelectedFile == fileHandle, ImGuiSelectableFlags_AllowDoubleClick)) {
                 uiWks.mSelectedFile = fileHandle;
                 if (fileInfo.type == WksFileType::Graph)
@@ -127,8 +127,8 @@ void GuiWorkspace::Render()
                 {
                     WksFileInfo info = wksGetFileInfo(mWks, mHoveredFile);
                     if (ImGui::MenuItem("Rename")) {
-                        strCopy(mCurFilename, sizeof(mCurFilename), info.name);
-                        pathFileName(mCurFilename, mCurFilename, sizeof(mCurFilename));
+                        Str::Copy(mCurFilename, sizeof(mCurFilename), info.name);
+                        PathUtils::GetFilename(mCurFilename, mCurFilename, sizeof(mCurFilename));
                         mRenameMode = true;
                     }
         

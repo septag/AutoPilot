@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Core/StringUtil.h"
-#include "Core/System.h"
-
 #include "Common.h"
 
 struct NodeGraph;
@@ -150,7 +147,7 @@ struct NO_VTABLE NodeImpl
 
 struct Node
 {
-    SysUUID uuid;
+    UniqueID uuid;
     Array<PinHandle> inPins;
     Array<PinHandle> outPins;
     NodeDesc desc;
@@ -207,7 +204,7 @@ struct NO_VTABLE PropertyImpl
 
 struct Property
 {
-    SysUUID uuid;
+    UniqueID uuid;
     PropertyDesc desc;
     PinHandle pin;
     PropertyImpl* impl;
@@ -224,13 +221,13 @@ API void ngRelease();
 
 API void ngRegisterNode(const NodeDesc& desc, NodeImpl* impl);
 API void ngUnregisterNode(const char* name);
-API Array<NodeGraphCatName> ngGetRegisteredNodes(Allocator* alloc);
+API Array<NodeGraphCatName> ngGetRegisteredNodes(MemAllocator* alloc);
 
 API void ngRegisterProperty(const PropertyDesc& desc, PropertyImpl* impl);
 API void ngUnregisterProperty(const char* name);
-API Array<const char*> ngGetRegisteredProperties(Allocator* alloc);
+API Array<const char*> ngGetRegisteredProperties(MemAllocator* alloc);
 
-API NodeGraph* ngCreate(Allocator* alloc, NodeGraphEvents* events = nullptr);
+API NodeGraph* ngCreate(MemAllocator* alloc, NodeGraphEvents* events = nullptr);
 API void ngDestroy(NodeGraph* graph);
 API bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg = nullptr, uint32 errMsgSize = 0);
 API bool ngSave(NodeGraph* graph, WksFileHandle fileHandle = WksFileHandle());
@@ -240,7 +237,7 @@ API WksFileHandle ngGetFileHandle(NodeGraph* graph);
 API bool ngSaveNode(const char* filepath, NodeGraph* graph, NodeHandle nodeHandle);
 API NodeHandle ngLoadNode(const char* filepath, NodeGraph* graph, bool genId);
 
-API NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const SysUUID* uuid = nullptr);
+API NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const UniqueID* uuid = nullptr);
 API void ngDestroyNode(NodeGraph* graph, NodeHandle handle);
 API PinHandle ngInsertDynamicPinIntoNode(NodeGraph* graph, NodeHandle handle, PinType type, const char* name = nullptr);
 API void ngRemoveDynamicPin(NodeGraph* graph, NodeHandle handle, PinType type, uint32 pinIndex);
@@ -249,7 +246,7 @@ API NodeHandle ngDuplicateNode(NodeGraph* graph, NodeHandle handle);
 API LinkHandle ngCreateLink(NodeGraph* graph, PinHandle pinA, PinHandle pinB);
 API void ngDestroyLink(NodeGraph* graph, LinkHandle handle);
 
-API PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const SysUUID* uuid = nullptr);
+API PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const UniqueID* uuid = nullptr);
 API bool ngStartProperty(NodeGraph* graph, PropertyHandle handle, const PinData& initialData, StringId pinName, StringId pinDescText, const void* internalData = nullptr);
 API bool ngEditProperty(NodeGraph* graph, PropertyHandle handle, StringId pinName, StringId pinDescText);
 API void ngDestroyProperty(NodeGraph* graph, PropertyHandle handle);
@@ -265,15 +262,15 @@ API void ngUpdateEvents(NodeGraph* graph);
 API void ngStop(NodeGraph* graph);
 API const char* ngGetLastError(NodeGraph* graph);
 
-API NodeHandle ngFindNodeById(NodeGraph* graph, SysUUID uuid);
-API PropertyHandle ngFindPropertyById(NodeGraph* graph, SysUUID uuid);
+API NodeHandle ngFindNodeById(NodeGraph* graph, UniqueID uuid);
+API PropertyHandle ngFindPropertyById(NodeGraph* graph, UniqueID uuid);
 
 API Node& ngGetNodeData(NodeGraph* graph, NodeHandle handle);
 API Pin& ngGetPinData(NodeGraph* graph, PinHandle handle);
 API Link& ngGetLinkData(NodeGraph* graph, LinkHandle handle);
 API Property& ngGetPropertyData(NodeGraph* graph, PropertyHandle handle);
-API Array<LinkHandle> ngFindLinksWithPin(NodeGraph* graph, PinHandle pinHandle, Allocator* alloc = memDefaultAlloc());
-API Array<PropertyHandle> ngGetProperties(NodeGraph* graph, Allocator* alloc = memDefaultAlloc());
+API Array<LinkHandle> ngFindLinksWithPin(NodeGraph* graph, PinHandle pinHandle, MemAllocator* alloc = Mem::GetDefaultAlloc());
+API Array<PropertyHandle> ngGetProperties(NodeGraph* graph, MemAllocator* alloc = Mem::GetDefaultAlloc());
 
 API NodeGraph* ngLoadChild(NodeGraph* graph, WksFileHandle childGraphFile, char* errMsg, uint32 errMsgSize, bool checkForCircularDep = false);
 API void ngUnloadChild(NodeGraph* graph, WksFileHandle childGraphFile);

@@ -1,13 +1,5 @@
+#include "Core.h"
 #include "Main.h"
-
-#include "Core/Base.h"
-#include "Core/Allocators.h"
-#include "Core/System.h"
-#include "Core/Jobs.h"
-#include "Core/Log.h"
-#include "Core/Settings.h"
-#include "Core/Atomic.h"
-#include "Core/IniParser.h"
 
 #include "GuiTextView.h"
 #include "GuiNodeGraph.h"
@@ -17,23 +9,23 @@
 #include "ImGui/ImGuiAll.h"
 
 #define STRPOOL_U64 StringId
-#define STRPOOL_MALLOC(ctx, size) memAlloc(size, (Allocator*)ctx)
-#define STRPOOL_FREE(ctx, ptr) memFree(ptr, (Allocator*)ctx)
+#define STRPOOL_MALLOC(ctx, size) Mem::Alloc(size, (MemAllocator*)ctx)
+#define STRPOOL_FREE(ctx, ptr) Mem::Free(ptr, (MemAllocator*)ctx)
 #define STRPOOL_ASSERT(expr, message) ASSERT_MSG(expr, message)
-#define STRPOOL_STRNICMP(s1, s2, len) (strIsEqualNoCaseCount(s1, s2, (uint32)len) ? 0 : 1)
+#define STRPOOL_STRNICMP(s1, s2, len) (Str::IsEqualNoCaseCount(s1, s2, (uint32)len) ? 0 : 1)
 #define STRPOOL_IMPLEMENTATION
 #include "strpool.h"
 
 #define SJSON_IMPLEMENT
-#define sjson_malloc(user, size) memAlloc(size, (Allocator*)user)
-#define sjson_free(user, ptr) memFree(ptr, (Allocator*)user)
-#define sjson_realloc(user, ptr, size) memRealloc(ptr, size, (Allocator*)user)
+#define sjson_malloc(user, size) Mem::Alloc(size, (MemAllocator*)user)
+#define sjson_free(user, ptr) Mem::Free(ptr, (MemAllocator*)user)
+#define sjson_realloc(user, ptr, size) Mem::Realloc(ptr, size, (MemAllocator*)user)
 #define sjson_assert(e) ASSERT(e)
-#define sjson_out_of_memory() MEMORY_FAIL()
-#define sjson_snprintf strPrintFmt
+#define sjson_out_of_memory() MEM_FAIL()
+#define sjson_snprintf Str::PrintFmt
 #include "External/sjson/sjson.h"
 
-#include "Core/External/minicoro/minicoro.h"
+#include "External/minicoro/minicoro.h"
 
 struct MainSettingsCallbacks : SettingsCustomCallbacks
 {
@@ -115,10 +107,10 @@ struct ShortcutItem
 
 struct MainContext
 {
-    Settings settings;
+    AppSettings settings;
     MainSettingsCallbacks settingsCallbacks;
     strpool_t strPool;
-    AtomicLock strPoolLock;
+    SpinLockMutex strPoolLock;
     bool strPoolInit;
     bool showDemo;
 
@@ -130,7 +122,7 @@ struct MainContext
     WorkspaceEvents workspaceEvents;
     FocusedWindow focused;
     GuiTaskView taskViewer;
-    IniContext workspaceSettings;
+    INIFileContext workspaceSettings;
 };
 
 static MainContext gMain;
@@ -146,13 +138,13 @@ static void LoadOrCreateWorkspaceSettings()
     Path workspaceSettingsPath = wksGetFullFolderPath(gMain.workspace.mWks, wksGetRootFolder(gMain.workspace.mWks));
     workspaceSettingsPath = Path::Join(workspaceSettingsPath, "settings.ini");
     if (!workspaceSettingsPath.IsFile()) {
-        gMain.workspaceSettings = iniCreateContext();
-        iniSave(gMain.workspaceSettings, workspaceSettingsPath.CStr());
+        gMain.workspaceSettings = INIFile::Create();
+        INIFile::Save(gMain.workspaceSettings, workspaceSettingsPath.CStr());
     }
     else {
-        gMain.workspaceSettings = iniLoad(workspaceSettingsPath.CStr());
+        gMain.workspaceSettings = INIFile::Load(workspaceSettingsPath.CStr());
         if (!gMain.workspaceSettings.IsValid()) {
-            logError("Loading workspace settings failed: %s", workspaceSettingsPath.CStr());
+            LOG_ERROR("Loading workspace settings failed: %s", workspaceSettingsPath.CStr());
         }
     }
 }
@@ -167,16 +159,16 @@ static int RunGraphThread(void* userData)
         mco_desc desc = mco_desc_init([](mco_coro* coro) { 
             RunSession* session = (RunSession*)mco_get_user_data(coro);
             session->ret = ngExecute(session->uiGraph->mGraph, true, coro);
-        }, kMB);
+        }, SIZE_MB);
 
-        desc.malloc_cb = [](size_t size, void* allocData)->void* { return memAlloc(size, (Allocator*)allocData); };
-        desc.free_cb = [](void* ptr, void* allocData) { memFree(ptr, (Allocator*)allocData); };
-        desc.allocator_data = memDefaultAlloc();
+        desc.alloc_cb = [](size_t size, void* allocData)->void* { return Mem::Alloc(size, (MemAllocator*)allocData); };
+        desc.dealloc_cb = [](void* ptr, size_t, void* allocData) { Mem::Free(ptr, (MemAllocator*)allocData); };
+        desc.allocator_data = Mem::GetDefaultAlloc();
         desc.user_data = session;
 
         mco_coro* coro;
         if (mco_create(&coro, &desc) != MCO_SUCCESS)  {
-            logError("Creating coroutines failed");
+            LOG_ERROR("Creating coroutines failed");
             return -1;
         }
 
@@ -215,13 +207,13 @@ static int RunGraphThread(void* userData)
         session->state = SessionState::Stopped;
     }
        
-    logDebug("Execute finished");
+    LOG_DEBUG("Execute finished");
     return r ? 0 : -1;
 }
 
 static RunSession* CreateRunSession(bool debugMode, GuiNodeGraph* guiGraph)
 {
-    RunSession* session = memAllocZeroTyped<RunSession>();
+    RunSession* session = Mem::AllocZeroTyped<RunSession>();
     session->uiGraph = guiGraph;
     session->debugMode = debugMode;
     session->cmd = SessionCommand::Run;
@@ -284,7 +276,7 @@ static int DestroyRunRussion(RunSession* session)
     session->signal.Release();
     session->uiGraph->mDebugMode = false;
     session->uiGraph->mDisableEdit = false;
-    memFree(session);
+    Mem::Free(session);
 
     return r;
 }
@@ -330,11 +322,11 @@ void DestroyNodeGraphUI(GuiNodeGraph* uiGraph)
             ngDestroy(uiGraph->mGraph);
 
         uiGraph->Release();
-        memFree(uiGraph);
+        Mem::Free(uiGraph);
     }
 }
 
-void WaitForProcessAndReadOutputText(const SysProcess& proc, Blob* outputBlob, uint32 updateIterval)
+void WaitForProcessAndReadOutputText(const OSProcess& proc, Blob* outputBlob, uint32 updateIterval)
 {
     char buffer[4096];
     uint32 bytesRead;
@@ -347,9 +339,9 @@ void WaitForProcessAndReadOutputText(const SysProcess& proc, Blob* outputBlob, u
         outputBlob->Write(buffer, bytesRead);
 
         if (updateIterval)
-            threadSleep(updateIterval);
+            Thread::Sleep(updateIterval);
         else
-            atomicPauseCpu();            
+            OS::PauseCPU();            
     }
 
     // Read remaining pipe data if the process is exited
@@ -363,25 +355,25 @@ static Path GetSettingsFilePath()
 {
     // Create cache dir if it doesn't exist
     Path cacheDir;
-    pathGetCacheDir(cacheDir.Ptr(), sizeof(cacheDir), CONFIG_APP_NAME);
+    OS::GetCacheDir(cacheDir.Ptr(), sizeof(cacheDir), CONFIG_APP_NAME);
     if (!cacheDir.IsDir())
-        pathCreateDir(cacheDir.CStr());
+        OS::CreateDir(cacheDir.CStr());
     return Path::Join(cacheDir, CONFIG_APP_NAME ".ini");
 }
 
 bool Initialize()
 {
-    settingsAddCustomCallbacks(&gMain.settingsCallbacks);
-    settingsInitializeFromINI(GetSettingsFilePath().CStr());
+    Settings::AddCustomCallbacks(&gMain.settingsCallbacks);
+    Settings::InitializeFromINI(GetSettingsFilePath().CStr());
 
-    logSetSettings(LogLevel::Debug, false, false);
-    jobsInitialize({});
+    Log::SetSettings(LogLevel::Debug, false, false);
+    Jobs::Initialize({});
     
     ngInitialize();
     tskInitialize();
     gMain.taskViewer.Initialize();
 
-    logRegisterCallback(_private::guiLog, nullptr);
+    Log::RegisterCallback(_private::guiLog, nullptr);
 
     gMain.workspace.mShowOpenWorkspaceFn = ShowOpenWorkspace;
 
@@ -389,7 +381,7 @@ bool Initialize()
     // debugSetCaptureStacktraceForFiberProtector(true);
 
     if (!gMain.settings.layout.lastWorkspacePath.IsEmpty()) {
-        gMain.workspace.mWks = wksCreate(gMain.settings.layout.lastWorkspacePath.CStr(), &gMain.workspaceEvents, memDefaultAlloc());
+        gMain.workspace.mWks = wksCreate(gMain.settings.layout.lastWorkspacePath.CStr(), &gMain.workspaceEvents, Mem::GetDefaultAlloc());
         if (!gMain.workspace.mWks)
             gMain.settings.layout.lastWorkspacePath = "";
         LoadOrCreateWorkspaceSettings();
@@ -403,8 +395,8 @@ bool Initialize()
         };
 
         for (uint32 i = 0; i < CountOf(tryPaths); i++) {
-            if (pathIsDir(tryPaths[i])) {
-                gMain.workspace.mWks = wksCreate("../../Samples", &gMain.workspaceEvents, memDefaultAlloc());
+            if (OS::IsPathDir(tryPaths[i])) {
+                gMain.workspace.mWks = wksCreate("../../Samples", &gMain.workspaceEvents, Mem::GetDefaultAlloc());
                 if (!gMain.workspace.mWks)
                     gMain.settings.layout.lastWorkspacePath = "";
                 LoadOrCreateWorkspaceSettings();
@@ -416,10 +408,10 @@ bool Initialize()
     RegisterShortcut("CTRL+F", [](void*) {
         switch (gMain.focused.type) {
         case FocusedWindow::Type::Workspace:
-            logDebug("Workspace Search");
+            LOG_DEBUG("Workspace Search");
             break;
         case FocusedWindow::Type::Output:
-            logDebug("Output Search");
+            LOG_DEBUG("Output Search");
             break;
         default:
             break;
@@ -438,7 +430,7 @@ bool Initialize()
 
 void Release()
 {
-    settingsSaveToINI(GetSettingsFilePath().CStr());
+    Settings::SaveToINI(GetSettingsFilePath().CStr());
 
     for (GraphWindow& gw : gMain.graphs) {
         if (gw.uiGraph) {
@@ -453,7 +445,7 @@ void Release()
                 ngDestroy(gw.uiGraph->mGraph);
 
             gw.uiGraph->Release();
-            memFree(gw.uiGraph);
+            Mem::Free(gw.uiGraph);
         }
     }
 
@@ -463,8 +455,8 @@ void Release()
     ngRelease();
     tskRelease();
 
-    jobsRelease();
-    settingsRelease();
+    Jobs::Release();
+    Settings::Release();
 
     if (gMain.strPoolInit)
         strpool_term(&gMain.strPool);
@@ -479,7 +471,7 @@ void ShowOpenWorkspace()
             gMain.workspace.mSelectedFile = WksFileHandle {};
         }
 
-        gMain.workspace.mWks = wksCreate(path, &gMain.workspaceEvents, memDefaultAlloc());
+        gMain.workspace.mWks = wksCreate(path, &gMain.workspaceEvents, Mem::GetDefaultAlloc());
         if (gMain.workspace.mWks)
             gMain.settings.layout.lastWorkspacePath = path;
     }, nullptr);
@@ -497,7 +489,7 @@ static void SaveGraph(GuiNodeGraph* uiGraph)
 
     uiGraph->mUnsavedChanges = false;
 
-    logVerbose("Saved: %s", filepath.CStr());
+    LOG_VERBOSE("Saved: %s", filepath.CStr());
 
     // Look through all other graphs that has this dependency and reload them
     for (GraphWindow& gw : gMain.graphs) {
@@ -549,7 +541,7 @@ void Update()
          // Right status bar
         imguiAlignRight([io] {
             char fps[32];
-            strPrintFmt(fps, sizeof(fps), "Fps: %.1f", io.Framerate);
+            Str::PrintFmt(fps, sizeof(fps), "Fps: %.1f", io.Framerate);
             ImGui::TextColored(ImGui::GetStyle().Colors[ImGuiCol_TextDisabled], fps);
         });
 
@@ -645,39 +637,39 @@ bool MainSettingsCallbacks::ParseSetting(uint32 categoryId, const char* key, con
     ASSERT(categoryId < uint32(MainSettingsCallbacks::Category::Count));
     switch (MainSettingsCallbacks::Category(categoryId)) {
     case MainSettingsCallbacks::Category::Tool:
-        if (strIsEqualNoCase(key, "AdbPath")) {
+        if (Str::IsEqualNoCase(key, "AdbPath")) {
             gMain.settings.tools.adbPath = value;
             return true;
         }
         break;
     case MainSettingsCallbacks::Category::Build:
-        if (strIsEqualNoCase(key, "VisualStudioPath")) {
+        if (Str::IsEqualNoCase(key, "VisualStudioPath")) {
             gMain.settings.build.visualStudioPath = value;
             return true;
         }
-        else if (strIsEqualNoCase(key, "VcVarsCmdPath")) {
+        else if (Str::IsEqualNoCase(key, "VcVarsCmdPath")) {
             gMain.settings.build.vcVarsCmdPath = value;
             return true;
         }
         break;
     case MainSettingsCallbacks::Category::Layout:
-        if (strIsEqualNoCase(key, "WindowWidth")) {
-            gMain.settings.layout.windowWidth = uint16(strToInt(value));
+        if (Str::IsEqualNoCase(key, "WindowWidth")) {
+            gMain.settings.layout.windowWidth = uint16(Str::ToInt(value));
             return true;
         }
-        else if (strIsEqualNoCase(key, "WindowHeight")) {
-            gMain.settings.layout.windowHeight = uint16(strToInt(value));
+        else if (Str::IsEqualNoCase(key, "WindowHeight")) {
+            gMain.settings.layout.windowHeight = uint16(Str::ToInt(value));
             return true;
         }
-        else if (strIsEqualNoCase(key, "WindowX")) {
-            gMain.settings.layout.windowX = uint16(strToInt(value));
+        else if (Str::IsEqualNoCase(key, "WindowX")) {
+            gMain.settings.layout.windowX = uint16(Str::ToInt(value));
             return true;
         }
-        else if (strIsEqualNoCase(key, "WindowY")) {
-            gMain.settings.layout.windowY = uint16(strToInt(value));
+        else if (Str::IsEqualNoCase(key, "WindowY")) {
+            gMain.settings.layout.windowY = uint16(Str::ToInt(value));
             return true;
         }
-        else if (strIsEqualNoCase(key, "LastWorkspacePath")) {
+        else if (Str::IsEqualNoCase(key, "LastWorkspacePath")) {
             gMain.settings.layout.lastWorkspacePath = value;
         }
     default:
@@ -690,7 +682,7 @@ bool MainSettingsCallbacks::ParseSetting(uint32 categoryId, const char* key, con
 void MainSettingsCallbacks::SaveCategory(uint32 categoryId, Array<SettingsKeyValue>& items)
 {
     char num[32];
-    auto ToStr = [&num](int n)->const char* { strPrintFmt(num, sizeof(num), "%d", n); return num; };
+    auto ToStr = [&num](int n)->const char* { Str::PrintFmt(num, sizeof(num), "%d", n); return num; };
 
     ASSERT(categoryId < uint32(MainSettingsCallbacks::Category::Count));
     switch (MainSettingsCallbacks::Category(categoryId)) {
@@ -713,7 +705,7 @@ void MainSettingsCallbacks::SaveCategory(uint32 categoryId, Array<SettingsKeyVal
     }
 }
 
-Settings& GetSettings()
+AppSettings& GetSettings()
 {
     return gMain.settings;
 }
@@ -722,15 +714,15 @@ StringId CreateString(const char* str)
 {
     ASSERT(str);
 
-    AtomicLockScope lock(gMain.strPoolLock);
+    SpinLockMutexScope lock(gMain.strPoolLock);
     if (!gMain.strPoolInit) {
         strpool_config_t conf = strpool_default_config;
-        conf.memctx = memDefaultAlloc();
+        conf.memctx = Mem::GetDefaultAlloc();
         strpool_init(&gMain.strPool, &conf);
         gMain.strPoolInit = true;
     }
 
-    StringId handle = strpool_inject(&gMain.strPool, str, strLen(str));
+    StringId handle = strpool_inject(&gMain.strPool, str, Str::Len(str));
     strpool_incref(&gMain.strPool, handle);
     return handle;
 }
@@ -740,7 +732,7 @@ void DestroyString(StringId handle)
     ASSERT(gMain.strPoolInit);
 
     if (handle) {
-        AtomicLockScope lock(gMain.strPoolLock);
+        SpinLockMutexScope lock(gMain.strPoolLock);
         int refCount = strpool_getref(&gMain.strPool, handle);
         if (refCount == 0)
             strpool_discard(&gMain.strPool, handle);
@@ -753,14 +745,14 @@ StringId DuplicateString(StringId handle)
         return 0;
     ASSERT(gMain.strPoolInit);
 
-    AtomicLockScope lock(gMain.strPoolLock);
+    SpinLockMutexScope lock(gMain.strPoolLock);
     strpool_incref(&gMain.strPool, handle);
     return handle;
 }
 
 const char* GetString(StringId handle)
 {
-    AtomicLockScope lock(gMain.strPoolLock);
+    SpinLockMutexScope lock(gMain.strPoolLock);
     return handle ? strpool_cstr(&gMain.strPool, handle) : "";
 }
 
@@ -826,15 +818,15 @@ void GraphEvents::OnSaveNode(GuiNodeGraph* uiGraph, NodeHandle nodeHandle)
 
     Path name_(name);
     {
-        strReplaceChar(name_.Ptr(), sizeof(name_), ' ', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), ':', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), ';', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), '\'', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), '\"', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), '`', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), '?', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), '/', '_');
-        strReplaceChar(name_.Ptr(), sizeof(name_), ',', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), ' ', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), ':', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), ';', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), '\'', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), '\"', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), '`', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), '?', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), '/', '_');
+        Str::ReplaceChar(name_.Ptr(), sizeof(name_), ',', '_');
     }
 
     name_.Append(wksGetNodeExt());
@@ -851,11 +843,11 @@ void GraphEvents::OnSaveNode(GuiNodeGraph* uiGraph, NodeHandle nodeHandle)
 
 bool WorkspaceEvents::OnCreateGraph(WksWorkspace* wks, WksFileHandle fileHandle)
 {
-    GuiNodeGraph* uiGraph = NEW(memDefaultAlloc(), GuiNodeGraph);
+    GuiNodeGraph* uiGraph = NEW(Mem::GetDefaultAlloc(), GuiNodeGraph);
     uiGraph->Initialize();
     uiGraph->mEvents = &gMain.graphEvents;
 
-    NodeGraph* graph = ngCreate(memDefaultAlloc(), uiGraph);
+    NodeGraph* graph = ngCreate(Mem::GetDefaultAlloc(), uiGraph);
     if (!ngSave(graph, fileHandle)) {
         DestroyNodeGraphUI(uiGraph);
         return false;
@@ -873,14 +865,14 @@ bool WorkspaceEvents::OnOpenGraph(WksWorkspace* wks, WksFileHandle fileHandle)
         return true;
     }
 
-    GuiNodeGraph* uiGraph = NEW(memDefaultAlloc(), GuiNodeGraph);
+    GuiNodeGraph* uiGraph = NEW(Mem::GetDefaultAlloc(), GuiNodeGraph);
     uiGraph->Initialize();
     uiGraph->mEvents = &gMain.graphEvents;
 
-    uiGraph->mGraph = ngCreate(memDefaultAlloc(), uiGraph);
+    uiGraph->mGraph = ngCreate(Mem::GetDefaultAlloc(), uiGraph);
     char errorMsg[512];
     if (!ngLoad(uiGraph->mGraph, fileHandle, errorMsg, sizeof(errorMsg))) {
-        logError(errorMsg);
+        LOG_ERROR(errorMsg);
         DestroyNodeGraphUI(uiGraph);
         return false;
     }
@@ -911,7 +903,7 @@ WksWorkspace* GetWorkspace()
 // "SHIFT+CTRL+K"
 static ShortcutItem ParseShortcutKeys(const char* shortcut)
 {
-    shortcut = strSkipWhitespace(shortcut);
+    shortcut = Str::SkipWhitespace(shortcut);
 
     ShortcutItem item {};
     uint32 numKeys = 0;
@@ -919,31 +911,31 @@ static ShortcutItem ParseShortcutKeys(const char* shortcut)
     char keystr[32];
 
     auto ParseSingleKey = [&item, &numKeys](const char* keystr) {
-        uint32 len = strLen(keystr);
+        uint32 len = Str::Len(keystr);
 
         bool isFn = 
             (len == 2 || len == 3) && 
-            strToUpper(keystr[0]) == 'F' && 
-            ((len == 2 && strIsNumber(keystr[1])) || (len == 3 && strIsNumber(keystr[1]) && strIsNumber(keystr[2])));
+            Str::ToUpper(keystr[0]) == 'F' && 
+            ((len == 2 && Str::IsNumber(keystr[1])) || (len == 3 && Str::IsNumber(keystr[1]) && Str::IsNumber(keystr[2])));
         if (isFn && numKeys < 2) {
             char numstr[3] = {keystr[1], keystr[2], 0};
-            int fnum = strToInt(numstr) - 1;
+            int fnum = Str::ToInt(numstr) - 1;
             if (fnum >= 0 && fnum < 12)
                 item.keys[numKeys++] = ImGuiKey(ImGuiKey_F1 + fnum);
         }
         else if (len > 1) {
             char modstr[32];
-            strToUpper(modstr, sizeof(modstr), keystr);
-            if (strIsEqual(modstr, "ALT"))
+            Str::ToUpper(modstr, sizeof(modstr), keystr);
+            if (Str::IsEqual(modstr, "ALT"))
                 item.modKeys |= ImGuiKey_ModAlt;
-            else if (strIsEqual(modstr, "CTRL"))
+            else if (Str::IsEqual(modstr, "CTRL"))
                 item.modKeys |= ImGuiKey_ModCtrl;
-            else if (strIsEqual(modstr, "SHIFT"))
+            else if (Str::IsEqual(modstr, "SHIFT"))
                 item.modKeys |= ImGuiKey_ModShift;
         } 
         else if (len == 1 && numKeys < 2) {
             if (keystr[0] > 32) {
-                switch (strToUpper(keystr[0])) {
+                switch (Str::ToUpper(keystr[0])) {
                 case '0': item.keys[numKeys++] = ImGuiKey_0; break;
                 case '1': item.keys[numKeys++] = ImGuiKey_1; break;
                 case '2': item.keys[numKeys++] = ImGuiKey_2; break;
@@ -999,18 +991,18 @@ static ShortcutItem ParseShortcutKeys(const char* shortcut)
 
 
     while (shortcut[0]) {
-        plus = strFindChar(shortcut, '+');
+        plus = Str::FindChar(shortcut, '+');
         if (!plus)
             break;
 
-        strCopyCount(keystr, sizeof(keystr), shortcut, PtrToInt<uint32>((void*)(plus - shortcut)));
+        Str::CopyCount(keystr, sizeof(keystr), shortcut, PtrToInt<uint32>((void*)(plus - shortcut)));
         ParseSingleKey(keystr);
-        shortcut = strSkipWhitespace(plus + 1);
+        shortcut = Str::SkipWhitespace(plus + 1);
     }
 
     // read the last one
     if (shortcut[0]) {
-        strCopy(keystr, sizeof(keystr), shortcut);
+        Str::Copy(keystr, sizeof(keystr), shortcut);
         ParseSingleKey(keystr);
     }
 
@@ -1024,15 +1016,15 @@ bool RegisterShortcut(const char* shortcut, ShortcutCallback shortcutFn, void* u
 
     // strip whitespace and search for duplicates
     char name[32];
-    if (strLen(shortcut) >= sizeof(name)) {
+    if (Str::Len(shortcut) >= sizeof(name)) {
         ASSERT(0);
         return false;
     }
 
-    strRemoveWhitespace(name, sizeof(name), shortcut);
-    strToUpper(name, sizeof(name), name);
+    Str::RemoveWhitespace(name, sizeof(name), shortcut);
+    Str::ToUpper(name, sizeof(name), name);
     for (const ShortcutItem& item : gMain.shortcuts) {
-        if (strIsEqual(name, item.name)) {
+        if (Str::IsEqual(name, item.name)) {
             ASSERT_MSG(0, "Shortcut already registered '%s'", shortcut);
             return false;
         }
@@ -1040,7 +1032,7 @@ bool RegisterShortcut(const char* shortcut, ShortcutCallback shortcutFn, void* u
 
     ShortcutItem item = ParseShortcutKeys(name);
     if (item.keys[0]) {
-        strCopy(item.name, sizeof(item.name), name);
+        Str::Copy(item.name, sizeof(item.name), name);
         item.callback = shortcutFn;
         item.user = userData;
         gMain.shortcuts.Push(item);
@@ -1054,11 +1046,11 @@ bool RegisterShortcut(const char* shortcut, ShortcutCallback shortcutFn, void* u
 void UnregisterShortcut(const char* shortcut)
 {
     char name[32];
-    strRemoveWhitespace(name, sizeof(name), shortcut);
-    strToUpper(name, sizeof(name), name);
+    Str::RemoveWhitespace(name, sizeof(name), shortcut);
+    Str::ToUpper(name, sizeof(name), name);
     for (uint32 i = 0; i < gMain.shortcuts.Count(); i++) {
         const ShortcutItem& item = gMain.shortcuts[i];
-        if (strIsEqual(name, item.name)) {
+        if (Str::IsEqual(name, item.name)) {
             gMain.shortcuts.RemoveAndSwap(i);
             return;
         }
@@ -1073,23 +1065,23 @@ void SetFocusedWindow(const FocusedWindow& focused)
 void MakeTimeFormat(float tmSecs, char* outText, uint32 textSize)
 {
     if (tmSecs < 1.0f) {
-        strPrintFmt(outText, textSize, "%d ms", int(tmSecs*1000.0f));
+        Str::PrintFmt(outText, textSize, "%d ms", int(tmSecs*1000.0f));
         return;
     }
 
     if (tmSecs < 60.0f) {
-        strPrintFmt(outText, textSize, "%.1f secs", tmSecs);
+        Str::PrintFmt(outText, textSize, "%.1f secs", tmSecs);
         return;
     }
 
     if (tmSecs < 3600.0f) {
         int secs = int(tmSecs);
-        strPrintFmt(outText, textSize, "%d min %d secs", secs/60, secs%60);
+        Str::PrintFmt(outText, textSize, "%d min %d secs", secs/60, secs%60);
         return;
     }
     
     int secs = int(tmSecs);
-    strPrintFmt(outText, textSize, "%d hr %d min", secs/3600, (secs%3600)/60);
+    Str::PrintFmt(outText, textSize, "%d hr %d min", secs/3600, (secs%3600)/60);
 }
 
 const char* GetWorkspaceSettingByCategoryName(const char* category, const char* name)
@@ -1097,9 +1089,9 @@ const char* GetWorkspaceSettingByCategoryName(const char* category, const char* 
     if (!gMain.workspaceSettings.IsValid())
         return nullptr;
     
-    IniSection section = gMain.workspaceSettings.FindSection(category);
+    INIFileSection section = gMain.workspaceSettings.FindSection(category);
     if (section.IsValid()) {
-        IniProperty prop = section.FindProperty(name);
+        INIFileProperty prop = section.FindProperty(name);
         if (prop.IsValid())
             return prop.GetValue();
     }

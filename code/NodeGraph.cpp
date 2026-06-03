@@ -1,9 +1,6 @@
-#include "NodeGraph.h"
+#include "Core.h"
 
-#include "Core/Log.h"
-#include "Core/Jobs.h"
-#include "Core/System.h"
-#include "Core/Atomic.h"
+#include "NodeGraph.h"
 
 #include "Main.h"
 #include "BuiltinProps.h"
@@ -15,7 +12,7 @@
 #include "ImGui/ImGuiAll.h"
 
 #include "External/sjson/sjson.h"
-#include "Core/External/minicoro/minicoro.h"
+#include "External/minicoro/minicoro.h"
 
 enum class NodeGraphProgressEventType
 {
@@ -48,7 +45,7 @@ struct NodeGraph
     HandlePool<NodeHandle, Node> nodePool;
     HandlePool<LinkHandle, Link> linkPool;
     HandlePool<PropertyHandle, Property> propPool;
-    Allocator* alloc;
+    MemAllocator* alloc;
     NodeGraphEvents* events;
     Mutex progressEventsMutex;
     Array<NodeGraphProgressEvent> progressEventsQueue;
@@ -61,7 +58,7 @@ struct NodeGraph
     Blob errorString;
     PinData outputResult;
     PinData metaData;
-    atomicUint32 stop;
+    AtomicUint32 stop;
     bool saveTaskFile;
 };
 
@@ -97,7 +94,7 @@ static thread_local const char* gParentFilepath;     // Temp value that is only 
 
 bool ngInitialize()
 {
-    Allocator* alloc = memDefaultAlloc();   // TODO: add the option to use any allocator
+    MemAllocator* alloc = Mem::GetDefaultAlloc();   // TODO: add the option to use any allocator
     gNodeGraph.nodeTemplates.SetAllocator(alloc);
     gNodeGraph.propTemplates.SetAllocator(alloc);
 
@@ -117,7 +114,7 @@ void ngRegisterNode(const NodeDesc& desc, NodeImpl* impl)
     ASSERT(desc.name);
     
     if (gNodeGraph.nodeTemplates.FindIf([desc](const NodeGraphNodeTemplate& templ)
-                                    { return strIsEqualNoCase(desc.name, templ.desc.name);}) != INVALID_INDEX)
+                                    { return Str::IsEqualNoCase(desc.name, templ.desc.name);}) != INVALID_INDEX)
     {
         ASSERT_MSG(0, "Node cannot be registered with the name '%s'. Registered name already exists.", desc.name);
         return;
@@ -132,13 +129,13 @@ void ngRegisterNode(const NodeDesc& desc, NodeImpl* impl)
 void ngUnregisterNode(const char* name)
 {
     uint32 index = gNodeGraph.nodeTemplates.FindIf([name](const NodeGraphNodeTemplate& templ)
-                                               { return strIsEqualNoCase(name, templ.desc.name);});
+                                               { return Str::IsEqualNoCase(name, templ.desc.name);});
     ASSERT(index != INVALID_INDEX);
 
     gNodeGraph.nodeTemplates.Pop(index);
 }
 
-Array<NodeGraphCatName> ngGetRegisteredNodes(Allocator* alloc)
+Array<NodeGraphCatName> ngGetRegisteredNodes(MemAllocator* alloc)
 {
     Array<NodeGraphCatName> nodes(alloc);
     for (NodeGraphNodeTemplate& templ : gNodeGraph.nodeTemplates)
@@ -152,7 +149,7 @@ void ngRegisterProperty(const PropertyDesc& desc, PropertyImpl* impl)
     ASSERT(desc.name);
 
     if (gNodeGraph.propTemplates.FindIf([desc](const NodeGraphPropertyTemplate& templ)
-                                        { return strIsEqualNoCase(desc.name, templ.desc.name); }) != INVALID_INDEX)
+                                        { return Str::IsEqualNoCase(desc.name, templ.desc.name); }) != INVALID_INDEX)
     {
         ASSERT_MSG(0, "Property cannot be registered with the name '%s'. Registered name already exists.", desc.name);
         return;
@@ -167,12 +164,12 @@ void ngRegisterProperty(const PropertyDesc& desc, PropertyImpl* impl)
 void ngUnregisterProperty(const char* name)
 {
     uint32 index = gNodeGraph.propTemplates.FindIf([name](const NodeGraphPropertyTemplate& templ)
-                                                   { return strIsEqualNoCase(name, templ.desc.name);});
+                                                   { return Str::IsEqualNoCase(name, templ.desc.name);});
     ASSERT(index != INVALID_INDEX);
     gNodeGraph.propTemplates.Pop(index);
 }
 
-Array<const char*> ngGetRegisteredProperties(Allocator* alloc)
+Array<const char*> ngGetRegisteredProperties(MemAllocator* alloc)
 {
     Array<const char*> props(alloc);
     for (NodeGraphPropertyTemplate& templ : gNodeGraph.propTemplates)
@@ -180,9 +177,9 @@ Array<const char*> ngGetRegisteredProperties(Allocator* alloc)
     return props;
 }
 
-NodeGraph* ngCreate(Allocator* alloc, NodeGraphEvents* events)
+NodeGraph* ngCreate(MemAllocator* alloc, NodeGraphEvents* events)
 {
-    NodeGraph* graph = memAllocZeroTyped<NodeGraph>();
+    NodeGraph* graph = Mem::AllocZeroTyped<NodeGraph>();
     graph->pinPool.SetAllocator(alloc);
     graph->nodePool.SetAllocator(alloc);
     graph->linkPool.SetAllocator(alloc);
@@ -250,14 +247,14 @@ void ngDestroy(NodeGraph* graph)
         graph->errorString.Free();
         graph->progressEventsQueue.Free();
         graph->progressEventsMutex.Release();
-        memFree(graph, graph->alloc);
+        Mem::Free(graph, graph->alloc);
     }
 }
 
-NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const SysUUID* uuid)
+NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const UniqueID* uuid)
 {
     uint32 index = gNodeGraph.nodeTemplates.FindIf([name](const NodeGraphNodeTemplate& templ)
-                                               { return strIsEqualNoCase(name, templ.desc.name);});
+                                               { return Str::IsEqualNoCase(name, templ.desc.name);});
     if (index == INVALID_INDEX) {
         ASSERT_MSG(0, "Node with name '%s' not found", name);
         return NodeHandle {};
@@ -273,11 +270,11 @@ NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const SysUUID* uuid)
     if (uuid) 
         node.uuid = *uuid;
     else
-        sysUUIDGenerate(&node.uuid);
+        UniqueID::Generate(&node.uuid);
     
     if (!nodeTempl.impl->Initialize(graph, handle)) {
-        logError("Failed to create node '%s'", nodeTempl.desc.name);
-        logError("\t%s", nodeTempl.impl->GetLastError(graph, handle));
+        LOG_ERROR("Failed to create node '%s'", nodeTempl.desc.name);
+        LOG_ERROR("\t%s", nodeTempl.impl->GetLastError(graph, handle));
         return NodeHandle {};
     }
     
@@ -285,7 +282,7 @@ NodeHandle ngCreateNode(NodeGraph* graph, const char* name, const SysUUID* uuid)
     node.outPins.SetAllocator(graph->alloc);
     
     if (node.desc.captureOutput) {
-        node.outputText = NEW(memDefaultAlloc(), TextContent);
+        node.outputText = NEW(Mem::GetDefaultAlloc(), TextContent);
         node.outputText->Initialize();
     }
     
@@ -397,21 +394,21 @@ NodeHandle ngDuplicateNode(NodeGraph* graph, NodeHandle dupHandle)
     });
 
     Node& node = graph->nodePool.Data(handle);
-    sysUUIDGenerate(&node.uuid);
+    UniqueID::Generate(&node.uuid);
     node.inPins.SetAllocator(graph->alloc);
     node.outPins.SetAllocator(graph->alloc);
     node.dynamicInPinIndex = srcNode.dynamicInPinIndex;
     
     if (!node.impl->InitializeDuplicate(graph, handle, srcNode.data)) {
-        logError("Failed to create node '%s'", srcNode.desc.name);
+        LOG_ERROR("Failed to create node '%s'", srcNode.desc.name);
         const char* errorMsg = node.impl->GetLastError(graph, handle);
         ASSERT_MSG(errorMsg, "GetLastError not properly implemented for node: %s", node.desc.name);
-        logError("\t%s", errorMsg);
+        LOG_ERROR("\t%s", errorMsg);
         return NodeHandle {};
     }
     
     if (node.desc.captureOutput) {
-        node.outputText = NEW(memDefaultAlloc(), TextContent);
+        node.outputText = NEW(Mem::GetDefaultAlloc(), TextContent);
         node.outputText->Initialize();
     }
     
@@ -515,7 +512,7 @@ LinkHandle ngCreateLink(NodeGraph* graph, PinHandle pinA, PinHandle pinB)
     const Pin& pinBData = graph->pinPool.Data(pinB);
 
     if ((pinAData.type != PinType::Output && pinAData.type != PinType::Param) || pinBData.type != PinType::Input) {
-        logWarning("Cannot connect pin '%s' to pin '%s'", pinAData.desc.name, pinBData.desc.name);
+        LOG_WARNING("Cannot connect pin '%s' to pin '%s'", pinAData.desc.name, pinBData.desc.name);
         return LinkHandle {};
     }
     
@@ -535,10 +532,10 @@ void ngDestroyLink(NodeGraph* graph, LinkHandle handle)
     graph->linkPool.Remove(handle);
 }
 
-PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const SysUUID* uuid)
+PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const UniqueID* uuid)
 {
     uint32 index = gNodeGraph.propTemplates.FindIf([name](const NodeGraphPropertyTemplate& templ)
-                                                   { return strIsEqualNoCase(name, templ.desc.name);});
+                                                   { return Str::IsEqualNoCase(name, templ.desc.name);});
     if (index == INVALID_INDEX) {
         ASSERT_MSG(0, "Property with name '%s' not found", name);
         return PropertyHandle();
@@ -547,8 +544,8 @@ PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const SysUUI
     if (uuid) {
         if (graph->propPool.FindIf([&uuid](const Property& p)->bool { return p.uuid == *uuid; }).IsValid()) {
             char uuidStr[64];
-            sysUUIDToString(*uuid, uuidStr, sizeof(uuidStr));
-            logWarning("Property with uuid '%s' (name: '%s') already exists", uuidStr, name);
+            UniqueID::ToString(*uuid, uuidStr, sizeof(uuidStr));
+            LOG_WARNING("Property with uuid '%s' (name: '%s') already exists", uuidStr, name);
             return PropertyHandle();
         }
     }
@@ -561,11 +558,11 @@ PropertyHandle ngCreateProperty(NodeGraph* graph, const char* name, const SysUUI
     if (uuid) 
         prop.uuid = *uuid;
     else
-        sysUUIDGenerate(&prop.uuid);
+        UniqueID::Generate(&prop.uuid);
     PropertyHandle handle = graph->propPool.Add(prop);
     
     if (!propTempl.impl->Initialize(graph, handle)) {
-        logError("Failed to create property '%s'", propTempl.desc.name);
+        LOG_ERROR("Failed to create property '%s'", propTempl.desc.name);
         return PropertyHandle {};
     }
 
@@ -586,7 +583,7 @@ bool ngStartProperty(NodeGraph* graph, PropertyHandle handle, const PinData& ini
     for (Property& prop : graph->propPool) {
         if (!prop.started)
             continue;
-        if (strIsEqualNoCase(GetString(prop.pinName), pinNameStr))
+        if (Str::IsEqualNoCase(GetString(prop.pinName), pinNameStr))
             return false;
     }
 
@@ -629,7 +626,7 @@ bool ngEditProperty(NodeGraph* graph, PropertyHandle handle, StringId pinName, S
         Property& prop = graph->propPool.Data(h);
         if (!prop.started)
             continue;
-        if (h != handle && strIsEqualNoCase(GetString(prop.pinName), pinNameStr))
+        if (h != handle && Str::IsEqualNoCase(GetString(prop.pinName), pinNameStr))
             return false;
     }
 
@@ -924,11 +921,11 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
         NodeGraphTask task = {
             .graph = graph,
             .nodes = nodes.Ptr(),
-            .errorNodes = memAllocZeroTyped<bool>(nodes.Count()),   // temp: ouch! we can't use tempalloc and dispatch
+            .errorNodes = Mem::AllocZeroTyped<bool>(nodes.Count()),   // temp: ouch! we can't use tempalloc and dispatch
             .numNodes = nodes.Count()
         };
-        JobsHandle handle = jobsDispatch(JobsType::LongTask, ngExecuteNodesTask, &task, nodes.Count());
-        jobsWaitForCompletion(handle);
+        JobsHandle handle = Jobs::Dispatch(JobsType::LongTask, ngExecuteNodesTask, &task, nodes.Count());
+        Jobs::WaitForCompletionAndDelete(handle);
 
         graph->errorString.Reset();
         bool errorOccured = false;
@@ -957,11 +954,11 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
                 Node& node = graph->nodePool.Data(nodeHandle);
                 const char* errText = node.impl->GetLastError(graph, nodeHandle);
 
-                graph->errorString.Write(node.desc.name, strLen(node.desc.name));
+                graph->errorString.Write(node.desc.name, Str::Len(node.desc.name));
                 if (errText && errText[0]) {
                     graph->errorString.Write<char>(':');
                     graph->errorString.Write<char>(' ');
-                    graph->errorString.Write(errText, strLen(errText));
+                    graph->errorString.Write(errText, Str::Len(errText));
                 }
                 graph->errorString.Write<char>('\n');
 
@@ -974,7 +971,7 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
         if (errorOccured)
             graph->errorString.Write<char>(0);
 
-        memFree(task.errorNodes);
+        Mem::Free(task.errorNodes);
         return !errorOccured;
     };
 
@@ -987,7 +984,7 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
     };
 
     //--------------------------------------------------------------------------------------
-    atomicStore32Explicit(&graph->stop, 0, AtomicMemoryOrder::Release);
+    Atomic::StoreExplicit(&graph->stop, 0, AtomicMemoryOrder::Release);
 
     graph->outputResult.SetString(nullptr);
     graph->metaData.SetString(nullptr);
@@ -1040,10 +1037,10 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
     for (uint32 i = 0; i < nodes.Count();) {
         Node& node = graph->nodePool.Data(nodes[i]);
         if (node.desc.constant) {
-            uint64 tick = timerGetTicks();
+            uint64 tick = Timer::GetTicks();
             node.numRuns = 1;
             if (!node.impl->Execute(graph, nodes[i], node.inPins, node.outPins)) {
-                logError("Executing constant node failed: %s", node.impl->GetTitleUI(graph, nodes[i]));
+                LOG_ERROR("Executing constant node failed: %s", node.impl->GetTitleUI(graph, nodes[i]));
                 ngPushProgressEvent(graph, NodeGraphProgressEvent {
                     .type = NodeGraphProgressEventType::NodeExecuteError,
                     .nodeHandle = nodes[i]
@@ -1051,7 +1048,7 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
                 CleanUp(true);
                 return false;
             }
-            node.runningTime = timerToSec(timerDiff(timerGetTicks(), tick));
+            node.runningTime = Timer::ToSec(Timer::Diff(Timer::GetTicks(), tick));
             nodes.RemoveAndSwap(i);
         }
         else {
@@ -1072,7 +1069,7 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
     }
 
     if (runNodes.Count() == 0) {
-        logError("There are no root nodes to run the graph. Connect 'Execute' pin to Nodes");
+        LOG_ERROR("There are no root nodes to run the graph. Connect 'Execute' pin to Nodes");
         CleanUp(true);
         return false;
     }
@@ -1093,7 +1090,7 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
     runNodes.Clear();
 
     // Now dispatch nodes, until there is none left, or some fatal error happens
-    while (nodes.Count() && atomicLoad32Explicit(&graph->stop, AtomicMemoryOrder::Acquire) == 0) {
+    while (nodes.Count() && Atomic::LoadExplicit(&graph->stop, AtomicMemoryOrder::Acquire) == 0) {
         for (uint32 i = 0; i < nodes.Count();) {
             if (NodeReadyToExecute(graph->nodePool.Data(nodes[i]))) {
                 runNodes.Push(nodes[i]);
@@ -1125,12 +1122,12 @@ bool ngExecute(NodeGraph* graph, bool debugMode, mco_coro* coro, TextContent* re
     return true;
 }
 
-NodeHandle ngFindNodeById(NodeGraph* graph, SysUUID uuid)
+NodeHandle ngFindNodeById(NodeGraph* graph, UniqueID uuid)
 {
     return graph->nodePool.FindIf([&uuid](const Node& n) { return n.uuid == uuid; });
 }
 
-PropertyHandle ngFindPropertyById(NodeGraph* graph, SysUUID uuid)
+PropertyHandle ngFindPropertyById(NodeGraph* graph, UniqueID uuid)
 {
     return graph->propPool.FindIf([&uuid](const Property& p) { return p.uuid == uuid; });
 }
@@ -1155,7 +1152,7 @@ Property& ngGetPropertyData(NodeGraph* graph, PropertyHandle handle)
     return graph->propPool.Data(handle);
 }
 
-Array<LinkHandle> ngFindLinksWithPin(NodeGraph* graph, PinHandle pinHandle, Allocator* alloc)
+Array<LinkHandle> ngFindLinksWithPin(NodeGraph* graph, PinHandle pinHandle, MemAllocator* alloc)
 {
     Array<LinkHandle> links(alloc);
 
@@ -1212,9 +1209,9 @@ void PinData::CopyFrom(const PinData& pin)
     if (pin.type == PinDataType::String) {
         switch (this->type) {
         case PinDataType::String:  this->SetString(pin.str, uint32(pin.size));  break;
-        case PinDataType::Boolean: this->b = strToBool(pin.str);    break;
-        case PinDataType::Integer: this->n = strToInt(pin.str); break;
-        case PinDataType::Float:   this->f = (float)strToDouble(pin.str);  break;
+        case PinDataType::Boolean: this->b = Str::ToBool(pin.str);    break;
+        case PinDataType::Integer: this->n = Str::ToInt(pin.str); break;
+        case PinDataType::Float:   this->f = (float)Str::ToDouble(pin.str);  break;
         case PinDataType::Void:    break;
         default: ASSERT_MSG(0, "Not implemented");
         }
@@ -1232,7 +1229,7 @@ void PinData::CopyFrom(const PinData& pin)
     else if (pin.type == PinDataType::Integer) {
         switch (this->type) {
         case PinDataType::Boolean: this->b = pin.n > 0; break;
-        case PinDataType::String:  { char str[32]; strPrintFmt(str, sizeof(str), "%u", pin.n);  this->SetString(str); break; }
+        case PinDataType::String:  { char str[32]; Str::PrintFmt(str, sizeof(str), "%u", pin.n);  this->SetString(str); break; }
         case PinDataType::Integer: this->n = pin.n; break;
         case PinDataType::Float:   this->f = float(pin.n);  break;
         case PinDataType::Void:    break;
@@ -1242,7 +1239,7 @@ void PinData::CopyFrom(const PinData& pin)
     else if (pin.type == PinDataType::Float) {
         switch (this->type) {
         case PinDataType::Boolean: this->b = pin.f > 0; break;
-        case PinDataType::String:  { char str[32]; strPrintFmt(str, sizeof(str), "%f", pin.f);  this->SetString(str); break; }
+        case PinDataType::String:  { char str[32]; Str::PrintFmt(str, sizeof(str), "%f", pin.f);  this->SetString(str); break; }
         case PinDataType::Integer: this->n = int(pin.f); break;
         case PinDataType::Float:   this->f = pin.f;  break;
         case PinDataType::Void:    break;
@@ -1275,16 +1272,16 @@ void PinData::CopyFrom(const PinData& pin)
 void PinData::SetString(const char* _str, uint32 _len)
 {
     if (this->str) {
-        memFree(this->str);
+        Mem::Free(this->str);
         this->str = nullptr;
         this->size = 0;
     }
     
     if (_str) {
         if (_len == 0)
-            _len = strLen(_str);
+            _len = Str::Len(_str);
 
-        this->str = memAllocCopyRawBytes<char>(_str, _len + 1);
+        this->str = Mem::AllocCopyRawBytes<char>(_str, _len + 1);
         this->size = _len;
     }
 }
@@ -1292,12 +1289,12 @@ void PinData::SetString(const char* _str, uint32 _len)
 void PinData::SetBuffer(const void* _buff, size_t _size)
 {
     if (this->buff) {
-        memFree(this->buff);
+        Mem::Free(this->buff);
         this->buff = nullptr;
     }
 
     if (_buff) {
-        this->buff = memAllocCopyRawBytes<void>(_buff, _size);
+        this->buff = Mem::AllocCopyRawBytes<void>(_buff, _size);
         this->size = _size;
     }
 }
@@ -1305,13 +1302,13 @@ void PinData::SetBuffer(const void* _buff, size_t _size)
 void PinData::Free()
 {
     if (this->type == PinDataType::Buffer || this->type == PinDataType::String) {
-        memFree(this->buff);
+        Mem::Free(this->buff);
         this->buff = nullptr;
         this->size = 0;
     }
 }
 
-Array<PropertyHandle> ngGetProperties(NodeGraph* graph, Allocator* alloc)
+Array<PropertyHandle> ngGetProperties(NodeGraph* graph, MemAllocator* alloc)
 {
     Array<PropertyHandle> props(alloc);
     for (uint32 i = 0; i < graph->propPool.Count(); i++)
@@ -1326,26 +1323,26 @@ static PinData ngLoadPinData(sjson_node* jdata)
 
     PinData data {};
     const char* typeStr = sjson_get_string(jdata, "Type", "");
-    if (strIsEqual(typeStr, "Boolean")) {
+    if (Str::IsEqual(typeStr, "Boolean")) {
         data.type = PinDataType::Boolean;
         data.b = sjson_get_bool(jdata, "Value", false);
     }
-    else if (strIsEqual(typeStr, "Float")) {
+    else if (Str::IsEqual(typeStr, "Float")) {
         data.type = PinDataType::Float;
         data.f = sjson_get_float(jdata, "Value", 0);
     }
-    else if (strIsEqual(typeStr, "Integer")) {
+    else if (Str::IsEqual(typeStr, "Integer")) {
         data.type = PinDataType::Integer;
         data.n = sjson_get_int(jdata, "Value", 0);
     }
-    else if (strIsEqual(typeStr, "String")) {
+    else if (Str::IsEqual(typeStr, "String")) {
         data.type = PinDataType::String;
         data.SetString(sjson_get_string(jdata, "Value", ""));
     }
-    else if (strIsEqual(typeStr, "Void")) {
+    else if (Str::IsEqual(typeStr, "Void")) {
         data.type = PinDataType::Void;
     }
-    else if (strIsEqual(typeStr, "Buffer")) {
+    else if (Str::IsEqual(typeStr, "Buffer")) {
         ASSERT(0);
         // TODO
     }
@@ -1370,16 +1367,16 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
     MemTempAllocator tmpAlloc;
     File f;
     if (!f.Open(filepath.CStr(), FileOpenFlags::Read | FileOpenFlags::SeqScan)) {
-        logError("Opening file failed: %s", filepath.CStr());
+        LOG_ERROR("Opening file failed: %s", filepath.CStr());
         if (errMsg)
-            strPrintFmt(errMsg, errMsgSize, "Opening file failed: %s", wfilepath.CStr());
+            Str::PrintFmt(errMsg, errMsgSize, "Opening file failed: %s", wfilepath.CStr());
         return false;
     }
 
     if (f.GetSize() == 0) {
-        logError("Empty file: %s", filepath.CStr());
+        LOG_ERROR("Empty file: %s", filepath.CStr());
         if (errMsg)
-            strPrintFmt(errMsg, errMsgSize, "Empty file: %s", wfilepath.CStr());
+            Str::PrintFmt(errMsg, errMsgSize, "Empty file: %s", wfilepath.CStr());
         return false;
     }
 
@@ -1393,9 +1390,9 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
     ASSERT_ALWAYS(jctx, "Out of memory?");
     sjson_node* jroot = sjson_decode(jctx, jsonText);
     if (!jroot) {
-        logError("Parsing json failed: %s", filepath.CStr());
+        LOG_ERROR("Parsing json failed: %s", filepath.CStr());
         if (errMsg) 
-            strPrintFmt(errMsg, errMsgSize, "Parsing json failed: %s", wfilepath.CStr());
+            Str::PrintFmt(errMsg, errMsgSize, "Parsing json failed: %s", wfilepath.CStr());
         return false;
     }
 
@@ -1405,10 +1402,10 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
         sjson_node* jdeps = sjson_find_member(jroot, "Dependencies");
         sjson_node* jdep = sjson_first_child(jdeps);
         while (jdep) {
-            if (strIsEqualNoCase(jdep->string_, gParentFilepath)) {
-                logError("Cannot load: %s. circular dependency found: %s", filepath.CStr(), gParentFilepath);
+            if (Str::IsEqualNoCase(jdep->string_, gParentFilepath)) {
+                LOG_ERROR("Cannot load: %s. circular dependency found: %s", filepath.CStr(), gParentFilepath);
                 if (errMsg) 
-                    strPrintFmt(errMsg, errMsgSize, "Cannot load: %s. circular dependency found: %s", wfilepath.CStr(), gParentFilepath);
+                    Str::PrintFmt(errMsg, errMsgSize, "Cannot load: %s. circular dependency found: %s", wfilepath.CStr(), gParentFilepath);
                 return false;
             }
             jdep = jdep->next;
@@ -1427,8 +1424,8 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
             PinData initialData = ngLoadPinData(sjson_find_member(jprop, "InitialData"));
             
             PropertyHandle handle;
-            SysUUID uuid;
-            if (initialData.type != PinDataType::Void && sysUUIDFromString(&uuid, uuidStr)) {
+            UniqueID uuid;
+            if (initialData.type != PinDataType::Void && UniqueID::FromString(&uuid, uuidStr)) {
                 handle = ngCreateProperty(graph, name, &uuid);
                 
                 Property& prop = ngGetPropertyData(graph, handle);
@@ -1438,7 +1435,7 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
                 propPin.data = ngLoadPinData(sjson_find_member(jprop, "Data"));
                 if (!prop.impl->LoadDataFromJson(graph, handle, jctx, jprop)) {
                     if (errMsg)
-                        strPrintFmt(errMsg, errMsgSize, "Loading property data failed: %s (File: %s)", pinName, wfilepath.CStr());
+                        Str::PrintFmt(errMsg, errMsgSize, "Loading property data failed: %s (File: %s)", pinName, wfilepath.CStr());
                     return false;
                 }
 
@@ -1462,8 +1459,8 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
             sjson_node* jextraInPins = sjson_find_member(jnode, "ExtraInPins");
             sjson_node* jextraOutPins = sjson_find_member(jnode, "ExtraOutPins");
 
-            SysUUID uuid;
-            if (sysUUIDFromString(&uuid, uuidStr)) {
+            UniqueID uuid;
+            if (UniqueID::FromString(&uuid, uuidStr)) {
                 NodeHandle handle = ngCreateNode(graph, name, &uuid);
 
                 Node& node = ngGetNodeData(graph, handle);
@@ -1485,7 +1482,7 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
 
                 if (!node.impl->LoadDataFromJson(graph, handle, jctx, jnode)) {
                     if (errMsg) {
-                        strPrintFmt(errMsg, errMsgSize, "Loading graph '%s' failed while loading node data '%s': %s", 
+                        Str::PrintFmt(errMsg, errMsgSize, "Loading graph '%s' failed while loading node data '%s': %s", 
                                     wfilepath.CStr(), name, 
                                     node.impl->GetLastError(graph, handle) ? node.impl->GetLastError(graph, handle) : "");
                     }
@@ -1509,13 +1506,13 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
             const char* nodeBId = sjson_get_string(jlink, "NodeB", "");
             PinHandle pinA {};
             PinHandle pinB {};
-            SysUUID uuidNode;
+            UniqueID uuidNode;
 
             if (nodeAId[0] == 0) {
                 const char* propId = sjson_get_string(jlink, "PropertyId", "");
 
-                SysUUID uuidProp;
-                if (sysUUIDFromString(&uuidProp, propId)) {
+                UniqueID uuidProp;
+                if (UniqueID::FromString(&uuidProp, propId)) {
                     PropertyHandle handle = graph->propPool.FindIf([uuidProp](const Property& p) { return p.uuid == uuidProp; });
                     if (handle.IsValid())
                         pinA = ngGetPropertyData(graph, handle).pin;
@@ -1525,7 +1522,7 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
                 int pinId = sjson_get_int(jlink, "PinA", -1);
                 ASSERT(pinId != -1);
 
-                if (sysUUIDFromString(&uuidNode, nodeAId)) {
+                if (UniqueID::FromString(&uuidNode, nodeAId)) {
                     NodeHandle handle = graph->nodePool.FindIf([uuidNode](const Node& n) { return n.uuid == uuidNode; });
                     if (handle.IsValid()) 
                         pinA = ngGetNodeData(graph, handle).outPins[pinId];
@@ -1536,7 +1533,7 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
             int pinBId = sjson_get_int(jlink, "PinB", -1);
             ASSERT(pinBId != -1);
 
-            if (sysUUIDFromString(&uuidNode, nodeBId)) {
+            if (UniqueID::FromString(&uuidNode, nodeBId)) {
                 NodeHandle handle = graph->nodePool.FindIf([uuidNode](const Node& n) { return n.uuid == uuidNode; });
                 Node& nodeB = ngGetNodeData(graph, handle);
                 if (pinBId < int(nodeB.inPins.Count()))
@@ -1544,7 +1541,7 @@ bool ngLoad(NodeGraph* graph, WksFileHandle fileHandle, char* errMsg, uint32 err
             }
 
             if (!pinA.IsValid() || !graph->pinPool.IsValid(pinA) || !pinB.IsValid() || !graph->pinPool.IsValid(pinB)) {
-                logWarning("Invalid pin connection, ignoring.");
+                LOG_WARNING("Invalid pin connection, ignoring.");
             }
             else {
                 LinkHandle handle = ngCreateLink(graph, pinA, pinB);
@@ -1599,12 +1596,12 @@ NodeHandle ngLoadNode(const char* filepath, NodeGraph* graph, bool genId)
 
     File f;
     if (!f.Open(filepath, FileOpenFlags::Read | FileOpenFlags::SeqScan)) {
-        logError("Opening file failed: %s", filepath);
+        LOG_ERROR("Opening file failed: %s", filepath);
         return NodeHandle();
     }
 
     if (f.GetSize() == 0) {
-        logError("Empty file: %s", filepath);
+        LOG_ERROR("Empty file: %s", filepath);
         return NodeHandle();
     }
 
@@ -1618,7 +1615,7 @@ NodeHandle ngLoadNode(const char* filepath, NodeGraph* graph, bool genId)
     ASSERT_ALWAYS(jctx, "Out of memory?");
     sjson_node* jroot = sjson_decode(jctx, jsonText);
     if (!jroot) {
-        logError("Parsing json failed: %s", filepath);
+        LOG_ERROR("Parsing json failed: %s", filepath);
         return NodeHandle();
     }
 
@@ -1628,8 +1625,8 @@ NodeHandle ngLoadNode(const char* filepath, NodeGraph* graph, bool genId)
     sjson_node* jextraInPins = sjson_find_member(jnode, "ExtraInPins");
     sjson_node* jextraOutPins = sjson_find_member(jnode, "ExtraOutPins");
 
-    SysUUID uuid;
-    bool hasId = genId ? sysUUIDGenerate(&uuid) : sysUUIDFromString(&uuid, uuidStr);
+    UniqueID uuid;
+    bool hasId = genId ? UniqueID::Generate(&uuid) : UniqueID::FromString(&uuid, uuidStr);
     NodeHandle handle {};
 
     if (hasId) {
@@ -1674,7 +1671,7 @@ bool ngSaveNode(const char* filepath, NodeGraph* graph, NodeHandle nodeHandle)
 
     Node& node = graph->nodePool.Data(nodeHandle);
     sjson_node* jnode = jroot;
-    sysUUIDToString(node.uuid, uuidStr, sizeof(uuidStr));
+    UniqueID::ToString(node.uuid, uuidStr, sizeof(uuidStr));
     sjson_append_member(jctx, jnode, "Id", sjson_mkstring(jctx, uuidStr));
     sjson_append_member(jctx, jnode, "Name", sjson_mkstring(jctx, node.desc.name));
 
@@ -1707,11 +1704,11 @@ bool ngSaveNode(const char* filepath, NodeGraph* graph, NodeHandle nodeHandle)
     char* jsonText = sjson_stringify(jctx, jroot, "\t");
     File f;
     if (!f.Open(filepath, FileOpenFlags::Write)) {
-        logError("Cannot open file for writing: %s", filepath);
+        LOG_ERROR("Cannot open file for writing: %s", filepath);
         return false;
     }
 
-    f.Write(jsonText, strLen(jsonText));
+    f.Write(jsonText, Str::Len(jsonText));
     f.Close();
 
     sjson_free_string(jctx, jsonText);
@@ -1758,7 +1755,7 @@ bool ngSave(NodeGraph* graph, WksFileHandle fileHandle)
             Pin& pin = graph->pinPool.Data(prop.pin);
             sjson_node* jprop = sjson_mkobject(jctx);
             
-            sysUUIDToString(prop.uuid, uuidStr, sizeof(uuidStr));
+            UniqueID::ToString(prop.uuid, uuidStr, sizeof(uuidStr));
             sjson_append_member(jctx, jprop, "Id", sjson_mkstring(jctx, uuidStr));
             sjson_append_member(jctx, jprop, "Name", sjson_mkstring(jctx, prop.desc.name));
             sjson_append_member(jctx, jprop, "PinName", sjson_mkstring(jctx, GetString(prop.pinName)));
@@ -1780,7 +1777,7 @@ bool ngSave(NodeGraph* graph, WksFileHandle fileHandle)
             NodeHandle handle = graph->nodePool.HandleAt(i);
             Node& node = graph->nodePool.Data(handle);
             sjson_node* jnode = sjson_mkobject(jctx);
-            sysUUIDToString(node.uuid, uuidStr, sizeof(uuidStr));
+            UniqueID::ToString(node.uuid, uuidStr, sizeof(uuidStr));
             sjson_append_member(jctx, jnode, "Id", sjson_mkstring(jctx, uuidStr));
             sjson_append_member(jctx, jnode, "Name", sjson_mkstring(jctx, node.desc.name));
 
@@ -1826,7 +1823,7 @@ bool ngSave(NodeGraph* graph, WksFileHandle fileHandle)
             
             if (link.nodeA.IsValid()) {
                 Node& nodeA = graph->nodePool.Data(link.nodeA);
-                sysUUIDToString(nodeA.uuid, uuidStr, sizeof(uuidStr));
+                UniqueID::ToString(nodeA.uuid, uuidStr, sizeof(uuidStr));
                 sjson_append_member(jctx, jlink, "NodeA", sjson_mkstring(jctx, uuidStr));
                 uint32 pinAIndex = nodeA.outPins.Find(link.pinA);
                 sjson_append_member(jctx, jlink, "PinA", sjson_mknumber(jctx, pinAIndex != INVALID_INDEX ? pinAIndex : -1));
@@ -1834,12 +1831,12 @@ bool ngSave(NodeGraph* graph, WksFileHandle fileHandle)
             else {
                 PropertyHandle propHandle = graph->propPool.FindIf([link](const Property& prop) { return prop.pin == link.pinA; });
                 Property& prop = graph->propPool.Data(propHandle);
-                sysUUIDToString(prop.uuid, uuidStr, sizeof(uuidStr));
+                UniqueID::ToString(prop.uuid, uuidStr, sizeof(uuidStr));
                 sjson_append_member(jctx, jlink, "PropertyId", sjson_mkstring(jctx, uuidStr));
             }
 
             Node& nodeB = graph->nodePool.Data(link.nodeB);
-            sysUUIDToString(nodeB.uuid, uuidStr, sizeof(uuidStr));
+            UniqueID::ToString(nodeB.uuid, uuidStr, sizeof(uuidStr));
             sjson_append_member(jctx, jlink, "NodeB", sjson_mkstring(jctx, uuidStr));
             uint32 pinBIndex = nodeB.inPins.Find(link.pinB);
             sjson_append_member(jctx, jlink, "PinB", sjson_mknumber(jctx, pinBIndex != INVALID_INDEX ? pinBIndex : -1));
@@ -1851,11 +1848,11 @@ bool ngSave(NodeGraph* graph, WksFileHandle fileHandle)
     char* jsonText = sjson_stringify(jctx, jroot, "\t");
     File f;
     if (!f.Open(filepath.CStr(), FileOpenFlags::Write)) {
-        logError("Cannot open file for writing: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
+        LOG_ERROR("Cannot open file for writing: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
         return false;
     }
 
-    f.Write(jsonText, strLen(jsonText));
+    f.Write(jsonText, Str::Len(jsonText));
     f.Close();
 
     sjson_free_string(jctx, jsonText);
@@ -1922,7 +1919,7 @@ void ngStop(NodeGraph* graph)
         if (node.isRunning)
             node.impl->Abort(graph, handle);
     }
-    atomicStore32Explicit(&graph->stop, 1, AtomicMemoryOrder::Release);
+    Atomic::StoreExplicit(&graph->stop, 1, AtomicMemoryOrder::Release);
 }
 
 NodeGraph* ngLoadChild(NodeGraph* graph, WksFileHandle childGraphFile, char* errMsg, uint32 errMsgSize, bool checkForCircularDep)
@@ -1993,10 +1990,10 @@ bool ngReloadChildNodes(NodeGraph* graph, WksFileHandle childGraphFile)
         NodeHandle handle = graph->nodePool.HandleAt(i);
         Node& node = graph->nodePool.Data(handle);
         // TODO: had to hardcode the name here. ouch!
-        if (strIsEqual(node.desc.name, "EmbedGraph") && 
+        if (Str::IsEqual(node.desc.name, "EmbedGraph") && 
             ((Node_EmbedGraph*)node.impl)->GetGraphFileHandle(graph, handle) == childGraphFile) 
         {
-            logVerbose("Reloading child node '%s' in graph '%s'", 
+            LOG_VERBOSE("Reloading child node '%s' in graph '%s'", 
                        node.impl->GetTitleUI(graph, handle), 
                        wksGetWorkspaceFilePath(GetWorkspace(), graph->fileHandle).CStr());
             r &= ((Node_EmbedGraph*)node.impl)->ReloadGraph(graph, handle);
@@ -2010,10 +2007,10 @@ void ngLoadPropertiesFromJson(NodeGraph* graph, sjson_node* jprops)
     sjson_node* jvalues = sjson_find_member(jprops, "Values");
     if (jvalues) {
         sjson_node* jvalue = sjson_first_child(jvalues);
-        SysUUID uuid;
+        UniqueID uuid;
         while (jvalue) {
             const char* uuidStr = sjson_get_string(jvalue, "Id", "");
-            if (sysUUIDFromString(&uuid, uuidStr)) {
+            if (UniqueID::FromString(&uuid, uuidStr)) {
                 PropertyHandle propHandle = ngFindPropertyById(graph, uuid);
                 if (propHandle.IsValid()) {
                     Property& prop = ngGetPropertyData(graph, propHandle);
@@ -2040,12 +2037,12 @@ bool ngLoadPropertiesFromFile(NodeGraph* graph, const char* jsonFilepath)
     MemTempAllocator tmpAlloc;
     File f;
     if (!f.Open(jsonFilepath, FileOpenFlags::Read | FileOpenFlags::SeqScan)) {
-        logError("Opening file failed: %s", jsonFilepath);
+        LOG_ERROR("Opening file failed: %s", jsonFilepath);
         return false;
     }
 
     if (f.GetSize() == 0) {
-        logError("Empty file: %s", jsonFilepath);
+        LOG_ERROR("Empty file: %s", jsonFilepath);
         return false;
     }
 
@@ -2059,7 +2056,7 @@ bool ngLoadPropertiesFromFile(NodeGraph* graph, const char* jsonFilepath)
     ASSERT_ALWAYS(jctx, "Out of memory?");
     sjson_node* jroot = sjson_decode(jctx, jsonText);
     if (!jroot) {
-        logError("Parsing json failed: %s", jsonFilepath);
+        LOG_ERROR("Parsing json failed: %s", jsonFilepath);
         return false;
     }
 
@@ -2083,7 +2080,7 @@ void ngSavePropertiesToJson(NodeGraph* graph, sjson_context* jctx, sjson_node* j
         if (prop.started && prop.pin.IsValid()) {
             sjson_node* jvalue = sjson_mkobject(jctx);
                     
-            sysUUIDToString(prop.uuid, uuidStr, sizeof(uuidStr));
+            UniqueID::ToString(prop.uuid, uuidStr, sizeof(uuidStr));
             sjson_put_string(jctx, jvalue, "Id", uuidStr);
             Pin& pin = ngGetPinData(graph, prop.pin);
             sjson_append_member(jctx, jvalue, "Data", ngSavePinData(jctx, pin.data));
@@ -2108,11 +2105,11 @@ bool ngSavePropertiesToFile(NodeGraph* graph, const char* jsonFilepath)
     char* jsonText = sjson_stringify(jctx, jroot, "\t");
     File f;
     if (!f.Open(jsonFilepath, FileOpenFlags::Write)) {
-        logError("Cannot open file for writing: %s", jsonFilepath);
+        LOG_ERROR("Cannot open file for writing: %s", jsonFilepath);
         return false;
     }
 
-    f.Write(jsonText, strLen(jsonText));
+    f.Write(jsonText, Str::Len(jsonText));
     f.Close();
 
     sjson_free_string(jctx, jsonText);

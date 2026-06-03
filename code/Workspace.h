@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/System.h"
-
 #include "Common.h"
 
 struct WksWorkspace;
@@ -26,7 +24,7 @@ struct NO_VTABLE WksEvents
     virtual bool OnOpenGraph(WksWorkspace* wks, WksFileHandle fileHandle) = 0;
 };
 
-API WksWorkspace* wksCreate(const char* rootDir, WksEvents* events, Allocator* alloc);
+API WksWorkspace* wksCreate(const char* rootDir, WksEvents* events, MemAllocator* alloc);
 API void wksDestroy(WksWorkspace* wks);
 
 API WksFolderHandle wksGetRootFolder(WksWorkspace* wks);

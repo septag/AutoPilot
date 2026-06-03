@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Core/Base.h"
-#include "Core/System.h"
-
 #include "Common.h"
 
 #define CONFIG_IMGUI_SETTINGS_FILENAME "imgui.ini"
@@ -31,7 +28,7 @@ struct LayoutSettings
     uint16 windowY;    
 };
 
-struct Settings
+struct AppSettings
 {
     BuildSettings build;
     ToolsSettings tools;
@@ -53,7 +50,7 @@ struct FocusedWindow
 bool Initialize();
 void Release();
 void Update();
-Settings& GetSettings();
+AppSettings& GetSettings();
 
 void* CreateRGBATexture(uint32 width, uint32 height, const void* data);
 void  DestroyTexture(void* handle);
@@ -62,7 +59,7 @@ void SetTextViewDockId(uint32 id);
 uint32 GetTextViewDockId();
 
 struct Blob;
-void WaitForProcessAndReadOutputText(const SysProcess& proc, Blob* outputBlob, uint32 updateIterval = 16);
+void WaitForProcessAndReadOutputText(const OSProcess& proc, Blob* outputBlob, uint32 updateIterval = 16);
 
 StringId CreateString(const char* str);
 StringId DuplicateString(StringId handle);
@@ -91,3 +88,7 @@ void MakeTimeFormat(float tmSecs, char* outText, uint32 textSize);
 
 const char* GetWorkspaceSettingByCategoryName(const char* category, const char* name);
 
+using TimerCallback = void(*)(void* userData);
+uint32 AddWindowTimer(TimerCallback timerCb, uint32 intervalMs, void* userData);
+void RemoveWindowTimer(uint32 timerId);
+void ToggleIdleWait(bool wait);

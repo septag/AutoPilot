@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Core/Base.h"
-
-enum class LogLevel;
 struct LogEntry;
 
 enum class GuiMessageBoxButtons : uint32 

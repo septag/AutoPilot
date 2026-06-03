@@ -1,9 +1,5 @@
+#include "Core.h"
 #include "GuiNodeGraph.h"
-
-#include "Core/Log.h"
-#include "Core/MathScalar.h"
-#include "Core/BlitSort.h"
-#include "Core/Hash.h"
 
 #include "GuiUtil.h"
 #include "Main.h"
@@ -73,7 +69,7 @@ static void GuiNodeGraph_OpenProperties(GuiNodeGraph* uigraph)
         Array<const char*> propNames = ngGetRegisteredProperties(&tmpAlloc);
         for (uint32 i = 0; i < propNames.Count(); i++) {
             if (ImGui::MenuItem(propNames[i])) {
-                NewPropData* data = memAllocZeroTyped<NewPropData>();
+                NewPropData* data = Mem::AllocZeroTyped<NewPropData>();
                 data->propName = propNames[i];
 
                 uigraph->mModalData = data;
@@ -90,7 +86,7 @@ static void GuiNodeGraph_OpenNodeDebugger(GuiNodeGraph* uigraph)
 {
     auto ShowPinData = [uigraph](const char* name, const Pin& pin) {
         char idStr[64];
-        strPrintFmt(idStr, sizeof(idStr), "##%s__value", name);
+        Str::PrintFmt(idStr, sizeof(idStr), "##%s__value", name);
         char valueStr[64];
         
         switch (pin.data.type) {
@@ -101,11 +97,11 @@ static void GuiNodeGraph_OpenNodeDebugger(GuiNodeGraph* uigraph)
                 ImGui::NewLine();
             break;
         case PinDataType::Float:
-            strPrintFmt(valueStr, sizeof(valueStr), "%f", pin.data.f);
+            Str::PrintFmt(valueStr, sizeof(valueStr), "%f", pin.data.f);
             ImGui::InputText(idStr, valueStr, sizeof(valueStr), ImGuiInputTextFlags_ReadOnly);
             break;
         case PinDataType::Integer: 
-            strPrintFmt(valueStr, sizeof(valueStr), "%u", pin.data.n);
+            Str::PrintFmt(valueStr, sizeof(valueStr), "%u", pin.data.n);
             ImGui::InputText(idStr, valueStr, sizeof(valueStr), ImGuiInputTextFlags_ReadOnly);
             break;
         case PinDataType::Boolean: 
@@ -180,7 +176,7 @@ static void GuiNodeGraph_OpenNodeDebugger(GuiNodeGraph* uigraph)
 static void GuiNodeGraph_RenderModals(GuiNodeGraph* uigraph)
 {
     auto CloseModal = [uigraph]() {
-        memFree(uigraph->mModalData);
+        Mem::Free(uigraph->mModalData);
         uigraph->mModalData = nullptr;
         ImGui::CloseCurrentPopup();
     };
@@ -322,7 +318,7 @@ static void GuiNodeGraph_RenderModals(GuiNodeGraph* uigraph)
                                 !ngStartProperty(uigraph->mGraph, propHandle, ngGetPinData(data->graph, prop.pin).data, 
                                                  DuplicateString(prop.pinName), DuplicateString(prop.pinDesc), prop.data))
                             {
-                                logWarning("Cannot add property '%s' to the current graph");
+                                LOG_WARNING("Cannot add property '%s' to the current graph");
                             }
                             else {
                                 prop.impl->InitializeDataFromPin(uigraph->mGraph, propHandle);
@@ -333,8 +329,8 @@ static void GuiNodeGraph_RenderModals(GuiNodeGraph* uigraph)
                 }
             }
 
-            memFree(data->props);
-            memFree(data->propFlags);
+            Mem::Free(data->props);
+            Mem::Free(data->propFlags);
             CloseModal();
             uigraph->mUnsavedChanges = true;
         }
@@ -380,7 +376,7 @@ void GuiNodeGraph::Render()
     char name[64];
     const char* unsavedStr = mUnsavedChanges ? "*" : "";
     Path wpath = wksGetWorkspaceFilePath(GetWorkspace(), ngGetFileHandle(mGraph));
-    strPrintFmt(name, sizeof(name), "%s%s###Graph_%x", ngGetName(mGraph), unsavedStr, hashFnv32Str(wpath.CStr()));
+    Str::PrintFmt(name, sizeof(name), "%s%s###Graph_%x", ngGetName(mGraph), unsavedStr, Hash::Fnv32Str(wpath.CStr()));
     ImGui::SetNextWindowSize(ImVec2(1024, 1024), ImGuiCond_FirstUseEver);
 
     if (mRefocus) {
@@ -609,10 +605,10 @@ void GuiNodeGraph::Render()
 
                         ImGui::SameLine();
                         if (ImGui::Button(ICON_FA_PENCIL_SQUARE)) {
-                            EditPropData* data = memAllocZeroTyped<EditPropData>();
+                            EditPropData* data = Mem::AllocZeroTyped<EditPropData>();
                             data->handle = propHandle;
-                            strCopy(data->name, sizeof(data->name), GetString(prop.pinName));
-                            strCopy(data->description, sizeof(data->description), GetString(prop.pinDesc));
+                            Str::Copy(data->name, sizeof(data->name), GetString(prop.pinName));
+                            Str::Copy(data->description, sizeof(data->description), GetString(prop.pinDesc));
 
                             mModalData = data;
                             mToggleModal = "Edit Property";
@@ -761,7 +757,7 @@ void GuiNodeGraph::Render()
 
                 didSameLine = true;
                 if (ImGui::Button(ICON_FA_BARS)) {
-                    EditNodeData* data = memAllocZeroTyped<EditNodeData>();
+                    EditNodeData* data = Mem::AllocZeroTyped<EditNodeData>();
                     data->handle = nodeHandle;
 
                     mModalData = data;
@@ -783,11 +779,11 @@ void GuiNodeGraph::Render()
                 }
                 if (ImGui::Button(ICON_FA_TERMINAL)) {
                     if (!uiNode.textView) {
-                        uiNode.textView = NEW(memDefaultAlloc(), GuiTextView);
+                        uiNode.textView = NEW(Mem::GetDefaultAlloc(), GuiTextView);
                     }
                     else {
                         uiNode.textView->~GuiTextView();
-                        memFree(uiNode.textView);
+                        Mem::Free(uiNode.textView);
                         uiNode.textView = nullptr;
                     }
                 }
@@ -824,7 +820,7 @@ void GuiNodeGraph::Render()
                 if (pinHandle == mEditingPinHandle) {
                     ImGui::SetNextItemWidth(100);
                     char idStr[64];
-                    strPrintFmt(idStr, sizeof(idStr), "##Pin_%u", uint32(pinHandle));
+                    Str::PrintFmt(idStr, sizeof(idStr), "##Pin_%u", uint32(pinHandle));
                     if (ImGui::IsKeyPressed(ImGuiKey_Escape))
                         mEditingPinHandle = PinHandle();
 
@@ -855,7 +851,7 @@ void GuiNodeGraph::Render()
             if (node.desc.dynamicInPins && !readOnly) {
                 if (ImGui::Button(ICON_FA_PLUS_SQUARE)) {
                     mEditingPinHandle = ngInsertDynamicPinIntoNode(mGraph, nodeHandle, PinType::Input);
-                    strCopy(mEditingPinName, sizeof(mEditingPinName), 
+                    Str::Copy(mEditingPinName, sizeof(mEditingPinName), 
                             GetString(ngGetPinData(mGraph, mEditingPinHandle).dynName));
                     mUnsavedChanges = true;
                 }
@@ -884,7 +880,7 @@ void GuiNodeGraph::Render()
                 if (pinHandle == mEditingPinHandle) {
                     ImGui::SetNextItemWidth(100);
                     char idStr[64];
-                    strPrintFmt(idStr, sizeof(idStr), "##Pin_%u", uint32(pinHandle));
+                    Str::PrintFmt(idStr, sizeof(idStr), "##Pin_%u", uint32(pinHandle));
                     if (ImGui::IsKeyPressed(ImGuiKey_Escape))
                         mEditingPinHandle = PinHandle();
 
@@ -922,7 +918,7 @@ void GuiNodeGraph::Render()
             if (node.desc.dynamicOutPins && !readOnly) {
                 if (ImGui::Button(ICON_FA_PLUS_SQUARE)) {
                     mEditingPinHandle = ngInsertDynamicPinIntoNode(mGraph, nodeHandle, PinType::Output);
-                    strCopy(mEditingPinName, sizeof(mEditingPinName), 
+                    Str::Copy(mEditingPinName, sizeof(mEditingPinName), 
                             GetString(ngGetPinData(mGraph, mEditingPinHandle).dynName));
                     mUnsavedChanges = true;
                     uiNode.width = 0;
@@ -979,7 +975,7 @@ void GuiNodeGraph::Render()
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("NodeFileDD")) {
                 WksFileHandle fileHandle = *((WksFileHandle*)payload->Data);
                 ASSERT(payload->DataSize);
-                logDebug("Load Node: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
+                LOG_DEBUG("Load Node: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
 
                 NodeHandle nodeHandle = ngLoadNode(wksGetFullFilePath(GetWorkspace(), fileHandle).CStr(), mGraph, true);
                 if (nodeHandle.IsValid()) {
@@ -995,7 +991,7 @@ void GuiNodeGraph::Render()
                 WksFileHandle fileHandle = *((WksFileHandle*)payload->Data);
 
                 if (fileHandle != ngGetFileHandle(mGraph)) {
-                    logDebug("Load Graph: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
+                    LOG_DEBUG("Load Graph: %s", wksGetWorkspaceFilePath(GetWorkspace(), fileHandle).CStr());
 
                     char errMsg[512];
 
@@ -1016,7 +1012,7 @@ void GuiNodeGraph::Render()
                     });
 
                     {
-                        ImportPropertiesData* data = memAllocZeroTyped<ImportPropertiesData>();
+                        ImportPropertiesData* data = Mem::AllocZeroTyped<ImportPropertiesData>();
                         data->graph = newGraph;
                         data->nodeHandle = nodeHandle;
                         Array<PropertyHandle> props = ngGetProperties(newGraph);
@@ -1024,7 +1020,7 @@ void GuiNodeGraph::Render()
                         data->addToCurrentGraphProps = true;
 
                         if (data->numProps) {
-                            data->propFlags = memAllocTyped<bool>(data->numProps);
+                            data->propFlags = Mem::AllocTyped<bool>(data->numProps);
                             for (uint32 i = 0; i < data->numProps; i++) 
                                 data->propFlags[i] = true;
                         }
@@ -1034,7 +1030,7 @@ void GuiNodeGraph::Render()
                     }
                 }
                 else {
-                    logWarning("Cannot embed the current graph itself");
+                    LOG_WARNING("Cannot embed the current graph itself");
                 }
             }
 
@@ -1095,7 +1091,7 @@ void GuiNodeGraph::Render()
             if (title == nullptr || title[0] == 0)
                 title = node.desc.name;
             char windowId[64];
-            strPrintFmt(windowId, sizeof(windowId), "Output: %s###Output_%x", title, uint32(uiNode.handle));
+            Str::PrintFmt(windowId, sizeof(windowId), "Output: %s###Output_%x", title, uint32(uiNode.handle));
             if (uiNode.refocusOutput) {
                 ImGui::SetWindowFocus(windowId);
                 uiNode.refocusOutput = false;
@@ -1199,7 +1195,7 @@ bool ngSaveLayout(const char* filepath, const GuiNodeGraph& uigraph, bool savePr
         for (GuiNodeGraphNode& uiNode : uigraph.mNodes) {
             sjson_node* jnode = sjson_mkobject(jctx);
             Node& node = ngGetNodeData(uigraph.mGraph, uiNode.handle);
-            sysUUIDToString(node.uuid, uuidStr, sizeof(uuidStr));
+            UniqueID::ToString(node.uuid, uuidStr, sizeof(uuidStr));
             sjson_put_string(jctx, jnode, "Id", uuidStr);
             sjson_put_floats(jctx, jnode, "Pos", &uiNode.pos.x, 2);
             sjson_append_element(jnodes, jnode);
@@ -1216,11 +1212,11 @@ bool ngSaveLayout(const char* filepath, const GuiNodeGraph& uigraph, bool savePr
     char* jsonText = sjson_stringify(jctx, jroot, "\t");
     File f;
     if (!f.Open(filepath, FileOpenFlags::Write)) {
-        logError("Cannot open file for writing: %s", filepath);
+        LOG_ERROR("Cannot open file for writing: %s", filepath);
         return false;
     }
 
-    f.Write(jsonText, strLen(jsonText));
+    f.Write(jsonText, Str::Len(jsonText));
     f.Close();
 
     sjson_free_string(jctx, jsonText);
@@ -1236,12 +1232,12 @@ bool ngLoadLayout(const char* filepath, GuiNodeGraph& uigraph)
 
     File f;
     if (!f.Open(filepath, FileOpenFlags::Read | FileOpenFlags::SeqScan)) {
-        logError("Opening file failed: %s", filepath);
+        LOG_ERROR("Opening file failed: %s", filepath);
         return false;
     }
 
     if (f.GetSize() == 0) {
-        logError("Empty file: %s", filepath);
+        LOG_ERROR("Empty file: %s", filepath);
         return false;
     }
 
@@ -1255,7 +1251,7 @@ bool ngLoadLayout(const char* filepath, GuiNodeGraph& uigraph)
     ASSERT_ALWAYS(jctx, "Out of memory?");
     sjson_node* jroot = sjson_decode(jctx, jsonText);
     if (!jroot) {
-        logError("Parsing json failed: %s", filepath);
+        LOG_ERROR("Parsing json failed: %s", filepath);
         return false;
     }
 
@@ -1272,7 +1268,7 @@ bool ngLoadLayout(const char* filepath, GuiNodeGraph& uigraph)
     }
 
     {
-        SysUUID uuidNode;
+        UniqueID uuidNode;
 
         sjson_node* jnodes = sjson_find_member(jroot, "Nodes");
         ASSERT(jnodes);
@@ -1280,7 +1276,7 @@ bool ngLoadLayout(const char* filepath, GuiNodeGraph& uigraph)
         sjson_node* jnode = sjson_first_child(jnodes);
         while (jnode) {
             const char* nodeId = sjson_get_string(jnode, "Id", "");
-            if (sysUUIDFromString(&uuidNode, nodeId)) {
+            if (UniqueID::FromString(&uuidNode, nodeId)) {
                 NodeHandle handle = ngFindNodeById(uigraph.mGraph, uuidNode);
                 if (handle.IsValid()) {
                     ImVec2 pos;
